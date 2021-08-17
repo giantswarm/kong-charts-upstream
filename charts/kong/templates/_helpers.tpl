@@ -27,6 +27,9 @@ helm.sh/chart: {{ template "kong.chart" . }}
 app.kubernetes.io/instance: "{{ .Release.Name }}"
 app.kubernetes.io/managed-by: "{{ .Release.Service }}"
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- range $key, $value := .Values.extraLabels }}
+{{ $key }}: {{ $value | quote }}
+{{- end }}
 {{- end -}}
 
 {{- define "kong.selectorLabels" -}}
@@ -81,10 +84,12 @@ spec:
   - host: {{ $hostname }}
     http:
       paths:
-        - path: {{ $path }}
-          backend:
+        - backend:
             serviceName: {{ .fullName }}-{{ .serviceName }}
             servicePort: {{ $servicePort }}
+          {{- if $path }}
+          path: {{ $path }}
+          {{- end -}}
   {{- if (hasKey .ingress "tls") }}
   tls:
   - hosts:
@@ -155,13 +160,13 @@ spec:
   {{- end }}
   {{- if (hasKey . "stream") }}
   {{- range .stream }}
-  - name: stream-{{ .containerPort }}
+  - name: stream-{{ if (eq (default .protocol "TCP") "UDP") }}udp-{{ end }}{{ .containerPort }}
     port: {{ .servicePort }}
     targetPort: {{ .containerPort }}
     {{- if (and (or (eq $.type "LoadBalancer") (eq $.type "NodePort")) (not (empty .nodePort))) }}
     nodePort: {{ .nodePort }}
     {{- end }}
-    protocol: TCP
+    protocol: {{ .protocol | default "TCP" }}
   {{- end }}
   {{- end }}
   {{- if .externalTrafficPolicy }}
@@ -250,12 +255,19 @@ Create KONG_STREAM_LISTEN string
     {{- $listenConfig := dict -}}
     {{- $listenConfig := merge $listenConfig . -}}
     {{- $_ := set $listenConfig "address" "0.0.0.0" -}}
+    {{/* You set NGINX stream listens to UDP using a parameter due to historical reasons.
+         Our configuration is dual-purpose, for both the Service and listen string, so we
+         forcibly inject this parameter if that's the Service protocol. The default handles
+         configs that predate the addition of the protocol field, where we only supported TCP. */}}
+    {{- if (eq (default .protocol "TCP") "UDP") -}}
+      {{- $_ := set $listenConfig "parameters" (append .parameters "udp") -}}
+    {{- end -}}
     {{- $unifiedListen = append $unifiedListen (include "kong.singleListen" $listenConfig ) -}}
   {{- end -}}
 
   {{- $listenString := ($unifiedListen | join ", ") -}}
   {{- if eq (len $listenString) 0 -}}
-    {{- $listenString = "off" -}}
+    {{- $listenString = "" -}}
   {{- end -}}
   {{- $listenString -}}
 {{- end -}}
@@ -334,6 +346,10 @@ The name of the service used for the ingress controller's validation webhook
 {{- if .Values.ingressController.admissionWebhook.enabled }}
   {{- $_ := set $autoEnv "CONTROLLER_ADMISSION_WEBHOOK_LISTEN" (printf "0.0.0.0:%d" (int64 .Values.ingressController.admissionWebhook.port)) -}}
 {{- end }}
+{{- if (not (eq (len .Values.ingressController.watchNamespaces) 0)) }}
+  {{- $_ := set $autoEnv "CONTROLLER_WATCH_NAMESPACE" (.Values.ingressController.watchNamespaces | join ",") -}}
+  {{- $_ := set $autoEnv "CONTROLLER_CONTROLLER_KONGCLUSTERPLUGIN" "disabled" -}}
+{{- end }}
 
 {{/*
     ====== USER-SET ENVIRONMENT VARIABLES ======
@@ -404,7 +420,11 @@ The name of the service used for the ingress controller's validation webhook
 {{- if .Values.ingressController.admissionWebhook.enabled }}
 - name: webhook-cert
   secret:
+    {{- if .Values.ingressController.admissionWebhook.certificate.provided }}
+    secretName: {{ .Values.ingressController.admissionWebhook.certificate.secretName }}
+    {{- else }}
     secretName: {{ template "kong.fullname" . }}-validation-webhook-keypair
+    {{- end }}  
 {{- end }}
 {{- range $secretVolume := .Values.secretVolumes }}
 - name: {{ . }}
@@ -500,11 +520,14 @@ The name of the service used for the ingress controller's validation webhook
 - name: wait-for-db
   image: {{ include "kong.getRepoTag" .Values.image }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
+  securityContext:
+  {{ toYaml .Values.containerSecurityContext | nindent 4 }} 
   env:
   {{- include "kong.env" . | nindent 2 }}
 {{/* TODO: the rm command here is a workaround for https://github.com/Kong/charts/issues/295
-     It should be removed once that's fixed */}}
-  command: [ "/bin/sh", "-c", "until kong start; do echo 'waiting for db'; sleep 1; done; kong stop; rm -fv {{ $sockFile | squote }}"]
+     It should be removed once that's fixed.
+     Note that we use args instead of command here to /not/ override the standard image entrypoint. */}}
+  args: [ "/bin/sh", "-c", "export KONG_NGINX_DAEMON=on; until kong start; do echo 'waiting for db'; sleep 1; done; kong stop; rm -fv {{ $sockFile | squote }}"]
   volumeMounts:
   {{- include "kong.volumeMounts" . | nindent 4 }}
   {{- include "kong.userDefinedVolumeMounts" . | nindent 4 }}
@@ -512,14 +535,42 @@ The name of the service used for the ingress controller's validation webhook
   {{- toYaml .Values.resources | nindent 4 }}
 {{- end -}}
 
+{{/*
+kong.controller2xplus returns "true" if the controller image tag major version is >= 2
+Note that this is a string, not a boolean, because templates vov
+*/}}
+{{- define "kong.controller2xplus" -}}
+{{- $version := "" -}}
+{{- if .Values.ingressController.image.effectiveSemver -}}
+  {{- $version = semver .Values.ingressController.image.effectiveSemver -}}
+{{- else -}}
+  {{- $version = semver .Values.ingressController.image.tag -}}
+{{- end -}}
+{{- ge $version.Major 2 -}}
+{{- end -}}
+
 {{- define "kong.controller-container" -}}
+{{- $controllerIs2xPlus := include "kong.controller2xplus" . -}}
 - name: ingress-controller
+  securityContext:
+{{ toYaml .Values.containerSecurityContext | nindent 4 }}  
   args:
   - /kong-ingress-controller
   {{ if .Values.ingressController.args}}
   {{- range $val := .Values.ingressController.args }}
   - {{ $val }}
   {{- end }}
+  {{- end }}
+  ports:
+  {{- if .Values.ingressController.admissionWebhook.enabled }}
+  - name: webhook
+    containerPort: {{ .Values.ingressController.admissionWebhook.port }}
+    protocol: TCP
+  {{- end }}
+  {{ if (eq $controllerIs2xPlus "true") -}}
+  - name: cmetrics
+    containerPort: 10255
+    protocol: TCP
   {{- end }}
   env:
   - name: POD_NAME
@@ -602,7 +653,24 @@ the template that it itself is using form the above sections.
 
 {{- $_ := set $autoEnv "KONG_PROXY_LISTEN" (include "kong.listen" .Values.proxy) -}}
 
-{{- $_ := set $autoEnv "KONG_STREAM_LISTEN" (include "kong.streamListen" .Values.proxy) -}}
+{{- $streamStrings := list -}}
+{{- if .Values.proxy.enabled -}}
+  {{- $tcpStreamString := (include "kong.streamListen" .Values.proxy) -}}
+  {{- if (not (eq $tcpStreamString "")) -}}
+    {{- $streamStrings = (append $streamStrings $tcpStreamString) -}}
+  {{- end -}}
+{{- end -}}
+{{- if .Values.udpProxy.enabled -}}
+  {{- $udpStreamString := (include "kong.streamListen" .Values.udpProxy) -}}
+  {{- if (not (eq $udpStreamString "")) -}}
+    {{- $streamStrings = (append $streamStrings $udpStreamString) -}}
+  {{- end -}}
+{{- end -}}
+{{- $streamString := $streamStrings | join ", " -}}
+{{- if (eq (len $streamString) 0)  -}}
+  {{- $streamString = "off" -}}
+{{- end -}}
+{{- $_ := set $autoEnv "KONG_STREAM_LISTEN" $streamString -}}
 
 {{- $_ := set $autoEnv "KONG_STATUS_LISTEN" (include "kong.listen" .Values.status) -}}
 
@@ -782,4 +850,224 @@ Environment variables are sorted alphabetically
 {{- else if .repository }}
 {{- .repository }}:{{ .tag }}
 {{- end -}}
+{{- end -}}
+
+{{/*
+kong.kubernetesRBACRoles outputs a static list of RBAC rules (the "rules" block
+of a Role or ClusterRole) that provide the ingress controller access to the
+Kubernetes resources it uses to build Kong configuration.
+*/}}
+{{- define "kong.kubernetesRBACRules" -}}
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongclusterplugins
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongclusterplugins/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongconsumers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongconsumers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongplugins
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongplugins/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - tcpingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - tcpingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - udpingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - udpingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.internal.knative.dev
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.internal.knative.dev
+  resources:
+  - ingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses/status
+  verbs:
+  - get
+  - patch
+  - update
 {{- end -}}
