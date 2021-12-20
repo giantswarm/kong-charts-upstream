@@ -52,10 +52,10 @@ app.kubernetes.io/instance: "{{ .Release.Name }}"
 Create the name of the service account to use
 */}}
 {{- define "kong.serviceAccountName" -}}
-{{- if .Values.ingressController.serviceAccount.create -}}
-    {{ default (include "kong.fullname" .) .Values.ingressController.serviceAccount.name }}
+{{- if .Values.deployment.serviceAccount.create -}}
+    {{ default (include "kong.fullname" .) .Values.deployment.serviceAccount.name }}
 {{- else -}}
-    {{ default "default" .Values.ingressController.serviceAccount.name }}
+    {{ default "default" .Values.deployment.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
 
@@ -66,13 +66,13 @@ Create Ingress resource for a Kong service
 {{- $servicePort := include "kong.ingress.servicePort" . }}
 {{- $path := .ingress.path -}}
 {{- $hostname := .ingress.hostname -}}
-apiVersion: extensions/v1beta1
+apiVersion: {{ .ingressVersion }}
 kind: Ingress
 metadata:
   name: {{ .fullName }}-{{ .serviceName }}
   namespace: {{ .namespace }}
   labels:
-   {{- .metaLabels | nindent 4 }}
+  {{- .metaLabels | nindent 4 }}
   {{- if .ingress.annotations }}
   annotations:
     {{- range $key, $value := .ingress.annotations }}
@@ -80,15 +80,28 @@ metadata:
     {{- end }}
   {{- end }}
 spec:
+{{- if (and (not (eq .ingressVersion "extensions/v1beta1")) .ingress.ingressClassName) }}
+  ingressClassName: {{ .ingress.ingressClassName }}
+{{- end }}
   rules:
   - host: {{ $hostname }}
     http:
       paths:
         - backend:
+          {{- if (not (eq .ingressVersion "networking.k8s.io/v1")) }}
             serviceName: {{ .fullName }}-{{ .serviceName }}
             servicePort: {{ $servicePort }}
+          {{- else }}
+            service:
+              name: {{ .fullName }}-{{ .serviceName }}
+              port:
+                number: {{ $servicePort }}
+            {{- end }}
           {{- if $path }}
           path: {{ $path }}
+          {{- if (not (eq .ingressVersion "extensions/v1beta1")) }}
+          pathType: ImplementationSpecific
+          {{- end }}
           {{- end -}}
   {{- if (hasKey .ingress "tls") }}
   tls:
@@ -160,7 +173,7 @@ spec:
   {{- end }}
   {{- if (hasKey . "stream") }}
   {{- range .stream }}
-  - name: stream-{{ if (eq (default .protocol "TCP") "UDP") }}udp-{{ end }}{{ .containerPort }}
+  - name: stream{{ if (eq (default "TCP" .protocol) "UDP") }}udp{{ end }}-{{ .containerPort }}
     port: {{ .servicePort }}
     targetPort: {{ .containerPort }}
     {{- if (and (or (eq $.type "LoadBalancer") (eq $.type "NodePort")) (not (empty .nodePort))) }}
@@ -259,8 +272,8 @@ Create KONG_STREAM_LISTEN string
          Our configuration is dual-purpose, for both the Service and listen string, so we
          forcibly inject this parameter if that's the Service protocol. The default handles
          configs that predate the addition of the protocol field, where we only supported TCP. */}}
-    {{- if (eq (default .protocol "TCP") "UDP") -}}
-      {{- $_ := set $listenConfig "parameters" (append .parameters "udp") -}}
+    {{- if (eq (default "TCP" .protocol) "UDP") -}}
+      {{- $_ := set $listenConfig "parameters" (append (default (list) .parameters) "udp") -}}
     {{- end -}}
     {{- $unifiedListen = append $unifiedListen (include "kong.singleListen" $listenConfig ) -}}
   {{- end -}}
@@ -348,7 +361,7 @@ The name of the service used for the ingress controller's validation webhook
 {{- end }}
 {{- if (not (eq (len .Values.ingressController.watchNamespaces) 0)) }}
   {{- $_ := set $autoEnv "CONTROLLER_WATCH_NAMESPACE" (.Values.ingressController.watchNamespaces | join ",") -}}
-  {{- $_ := set $autoEnv "CONTROLLER_CONTROLLER_KONGCLUSTERPLUGIN" "disabled" -}}
+  {{- $_ := set $autoEnv "CONTROLLER_ENABLE_CONTROLLER_KONGCLUSTERPLUGIN" false -}}
 {{- end }}
 
 {{/*
@@ -516,7 +529,6 @@ The name of the service used for the ingress controller's validation webhook
 {{- end -}}
 
 {{- define "kong.wait-for-db" -}}
-{{ $sockFile := (printf "%s/stream_rpc.sock" (default "/usr/local/kong" .Values.env.prefix)) }}
 - name: wait-for-db
   image: {{ include "kong.getRepoTag" .Values.image }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -524,10 +536,9 @@ The name of the service used for the ingress controller's validation webhook
   {{ toYaml .Values.containerSecurityContext | nindent 4 }} 
   env:
   {{- include "kong.env" . | nindent 2 }}
-{{/* TODO: the rm command here is a workaround for https://github.com/Kong/charts/issues/295
-     It should be removed once that's fixed.
+{{/* TODO the prefix override is to work around https://github.com/Kong/charts/issues/295
      Note that we use args instead of command here to /not/ override the standard image entrypoint. */}}
-  args: [ "/bin/sh", "-c", "export KONG_NGINX_DAEMON=on; until kong start; do echo 'waiting for db'; sleep 1; done; kong stop; rm -fv {{ $sockFile | squote }}"]
+  args: [ "/bin/sh", "-c", "export KONG_NGINX_DAEMON=on; export KONG_PREFIX=`mktemp -d`; until kong start; do echo 'waiting for db'; sleep 1; done; kong stop"]
   volumeMounts:
   {{- include "kong.volumeMounts" . | nindent 4 }}
   {{- include "kong.userDefinedVolumeMounts" . | nindent 4 }}
@@ -535,27 +546,20 @@ The name of the service used for the ingress controller's validation webhook
   {{- toYaml .Values.resources | nindent 4 }}
 {{- end -}}
 
-{{/*
-kong.controller2xplus returns "true" if the controller image tag major version is >= 2
-Note that this is a string, not a boolean, because templates vov
-*/}}
-{{- define "kong.controller2xplus" -}}
-{{- $version := "" -}}
-{{- if .Values.ingressController.image.effectiveSemver -}}
-  {{- $version = semver .Values.ingressController.image.effectiveSemver -}}
+{{/* effectiveVersion takes an image dict from values.yaml. if .effectiveSemver is set, it returns that, else it returns .tag */}}
+{{- define "kong.effectiveVersion" -}}
+{{- if .effectiveSemver -}}
+{{- .effectiveSemver -}}
 {{- else -}}
-  {{- $version = semver .Values.ingressController.image.tag -}}
+{{- .tag -}}
 {{- end -}}
-{{- ge $version.Major 2 -}}
 {{- end -}}
 
 {{- define "kong.controller-container" -}}
-{{- $controllerIs2xPlus := include "kong.controller2xplus" . -}}
 - name: ingress-controller
   securityContext:
 {{ toYaml .Values.containerSecurityContext | nindent 4 }}  
   args:
-  - /kong-ingress-controller
   {{ if .Values.ingressController.args}}
   {{- range $val := .Values.ingressController.args }}
   - {{ $val }}
@@ -567,7 +571,7 @@ Note that this is a string, not a boolean, because templates vov
     containerPort: {{ .Values.ingressController.admissionWebhook.port }}
     protocol: TCP
   {{- end }}
-  {{ if (eq $controllerIs2xPlus "true") -}}
+  {{ if (semverCompare ">= 2.0.0" (include "kong.effectiveVersion" .Values.ingressController.image)) -}}
   - name: cmetrics
     containerPort: 10255
     protocol: TCP
@@ -586,10 +590,17 @@ Note that this is a string, not a boolean, because templates vov
 {{- include "kong.ingressController.env" .  | indent 2 }}
   image: {{ include "kong.getRepoTag" .Values.ingressController.image }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
+{{/* disableReadiness is a hidden setting to drop this block entirely for use with a debugger
+     Helm value interpretation doesn't let you replace the default HTTP checks with any other
+	 check type, and all HTTP checks freeze when a debugger pauses operation.
+	 Setting disableReadiness to ANY value disables the probes.
+*/}}
+{{- if (not (hasKey .Values.ingressController "disableProbes")) }}
   readinessProbe:
 {{ toYaml .Values.ingressController.readinessProbe | indent 4 }}
   livenessProbe:
 {{ toYaml .Values.ingressController.livenessProbe | indent 4 }}
+{{- end }}
   resources:
 {{ toYaml .Values.ingressController.resources | indent 4 }}
 {{- if .Values.ingressController.admissionWebhook.enabled }}
@@ -1070,4 +1081,14 @@ Kubernetes resources it uses to build Kong configuration.
   - get
   - patch
   - update
+{{- end -}}
+
+{{- define "kong.ingressVersion" -}}
+{{- if (.Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress") -}}
+networking.k8s.io/v1
+{{- else if (.Capabilities.APIVersions.Has "networking.k8s.io/v1beta1/Ingress") -}}
+networking.k8s.io/v1beta1
+{{- else -}}
+extensions/v1beta1
+{{- end -}}
 {{- end -}}

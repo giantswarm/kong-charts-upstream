@@ -1,5 +1,123 @@
 # Changelog
 
+**Note:** chart versions 2.3.0 through 2.5.0 contained an incorrect
+KongIngress CRD. The `proxy.path` field was missing. Helm will not fix this
+automatically on upgrade. You can fix it by running:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/Kong/charts/main/charts/kong/crds/custom-resource-definitions.yaml
+```
+
+## 2.6.3
+
+### Improvements
+
+* Increased example resources for the Kong container.
+  ([#511](https://github.com/Kong/charts/pull/511))
+
+### Fixed
+
+* Corrected an invalid label match condition for the admission webhook.
+  ([#513](https://github.com/Kong/charts/pull/513))
+
+## 2.6.2
+
+### Improvements
+
+* Added `app` and `version` labels to pods.
+  ([#504](https://github.com/Kong/charts/pull/504))
+* Reworked leftover socket file cleanup to avoid similar problems of the same
+  class.
+  ([#508](https://github.com/Kong/charts/pull/508))
+
+### Fixed
+
+* SecurityContext and resources applied to PID cleanup initContainer also.
+  ([#503](https://github.com/Kong/charts/pull/503))
+* Disabled the admission webhook on Helm Secrets, fixing an issue where it
+  prevented Helm from updating release metadata.
+  ([#500](https://github.com/Kong/charts/pull/500))
+* initContainers that use the Kong image use the same imagePullPolicy as the
+  main Kong container.
+  ([#501](https://github.com/Kong/charts/pull/501))
+* Applied mesh sidecar annotations to the Pod, not the Deployment.
+  ([#507](https://github.com/Kong/charts/pull/507))
+
+## 2.6.1
+
+### Fixed
+
+* Disabled IngressClass creation on Kubernetes versions that do not support it.
+* Added missing resources (Secrets, KongClusterPlugins) to the admission
+  controller configuration.
+  ([#492](https://github.com/Kong/charts/pull/492))
+
+## 2.6.0
+
+### Improvements
+
+* Added an initContainer to clear leftover PID file in the event of a Kong
+  container crash, allowing the container to restart.
+  ([#480](https://github.com/Kong/charts/pull/480))
+* Added deployment.hostNetwork to enable host network access.
+  ([#486](https://github.com/Kong/charts/pull/486))
+
+### Fixed
+
+* NOTES.txt documentation link now uses up-to-date location.
+* Ingress availability check tightened to require the Ingress API specifically
+  in `networking.k8s.io/v1`.
+  ([#484](https://github.com/Kong/charts/pull/484))
+* Flipped backwards logic for creating an IngressClass when no IngressClass was
+  present.
+  ([#485](https://github.com/Kong/charts/pull/485))
+* Removed unnecessary hardcoded controller container argument.
+  ([#481](https://github.com/Kong/charts/pull/481))
+* Restored missing `proxy.path` field to KongIngress CRD.
+
+## 2.5.0
+
+### Improvements
+
+* Default Kong proxy version updated to 2.6.
+
+### Fixed
+
+* Properly disable KongClusterPlugin when watchNamespaces is set.
+  ([#475](https://github.com/Kong/charts/pull/475))
+
+## 2.4.0
+
+### Breaking Changes
+
+* KIC now defaults to version 2.0. If you use a database, you must first
+  perform a temporary intermediate upgrade to disable KIC before upgrading it
+  to 2.0 and re-enabling it. See the [upgrade guide](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#disable-ingress-controller-prior-to-2x-upgrade-when-using-postgresql)
+  for detailed instructions.
+* ServiceAccount are now always created by default unless explicitly disabled.
+  ServiceAccount customization has [moved under the `deployment` section of
+  configuration](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#changed-serviceaccount-configuration-location)
+  to reflect this. This accomodates configurations that need a ServiceAccount
+  but that do not use the ingress controller.
+  ([#455](https://github.com/Kong/charts/pull/455))
+
+### Improvements
+
+* Migration jobs support a configurable backoffLimit.
+  ([#442](https://github.com/Kong/charts/pull/442))
+* Generated Ingresses now use `networking.k8s.io/v1` when available.
+  ([#446](https://github.com/Kong/charts/pull/446))
+
+### Fixed
+
+* 5-digit UDP ports now work properly.
+  ([#443](https://github.com/Kong/charts/pull/443))
+* Fixed port name used for NLB annotation example.
+  ([#458](https://github.com/Kong/charts/pull/458))
+* Fixed a compatibility issue with Helm's `--set-file` feature and
+  user-provided DB-less configuration ConfigMaps.
+  ([#465](https://github.com/Kong/charts/pull/465))
+
 ## 2.3.0
 
 ### Breaking Changes

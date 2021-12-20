@@ -51,16 +51,23 @@ spec:
       labels:
         {{- include "kong.metaLabels" . | nindent 8 }}
         app.kubernetes.io/component: app
+        app: {{ template "kong.fullname" . }}
+        version: {{ .Chart.AppVersion | quote }}
         {{- if .Values.podLabels }}
         {{ toYaml .Values.podLabels | nindent 8 }}
         {{- end }}
     spec:
-      automountServiceAccountToken: {{ .Values.ingressController.enabled }}
+      {{- if .Values.deployment.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
       {{- if .Values.priorityClassName }}
       priorityClassName: "{{ .Values.priorityClassName }}"
       {{- end }}
-      {{- if or .Values.ingressController.enabled .Values.podSecurityPolicy.enabled }}
+      {{- if or .Values.deployment.serviceAccount.create .Values.deployment.serviceAccount.name }}
       serviceAccountName: {{ template "kong.serviceAccountName" . }}
+      automountServiceAccountToken: true
+      {{- else }}
+      automountServiceAccountToken: false
       {{ end }}
       {{- if .Values.image.pullSecrets }}
       imagePullSecrets:
@@ -68,15 +75,28 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
-      {{- if (or (and (not (eq .Values.env.database "off")) .Values.waitImage.enabled) .Values.deployment.initContainers) }}
       initContainers:
+      - name: clear-stale-pid
+        image: {{ include "kong.getRepoTag" .Values.image }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+        {{ toYaml .Values.containerSecurityContext | nindent 10 }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        command:
+        - "rm"
+        - "-vrf"
+        - "$KONG_PREFIX/pids"
+        env:
+        {{- include "kong.env" . | nindent 8 }}
+        volumeMounts:
+        {{- include "kong.volumeMounts" . | nindent 8 }}
         {{- if .Values.deployment.initContainers }}
         {{- toYaml .Values.deployment.initContainers | nindent 6 }}
         {{- end }}
         {{- if (and (not (eq .Values.env.database "off")) .Values.waitImage.enabled) }}
         {{- include "kong.wait-for-db" . | nindent 6 }}
         {{- end }}
-      {{- end }}
       {{- if .Values.deployment.hostAliases }}
       hostAliases:
         {{- toYaml .Values.deployment.hostAliases | nindent 6 }}
@@ -100,7 +120,7 @@ spec:
         image: {{ include "kong.getRepoTag" .Values.image }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         securityContext:
-        {{ toYaml .Values.containerSecurityContext | nindent 10 }}  
+        {{ toYaml .Values.containerSecurityContext | nindent 10 }}
         env:
         {{- include "kong.no_daemon_env" . | nindent 8 }}
         lifecycle:
@@ -139,7 +159,7 @@ spec:
           protocol: TCP
         {{- end }}
         {{- range .Values.proxy.stream }}
-        - name: stream-{{ .containerPort }}
+        - name: stream{{ if (eq (default "TCP" .protocol) "UDP") }}udp{{ end }}-{{ .containerPort }}
           containerPort: {{ .containerPort }}
           {{- if .hostPort }}
           hostPort: {{ .hostPort }}
@@ -147,7 +167,7 @@ spec:
           protocol: {{ .protocol }}
         {{- end }}
         {{- range .Values.udpProxy.stream }}
-        - name: stream-udp-{{ .containerPort }}
+        - name: streamudp-{{ .containerPort }}
           containerPort: {{ .containerPort }}
           {{- if .hostPort }}
           hostPort: {{ .hostPort }}
