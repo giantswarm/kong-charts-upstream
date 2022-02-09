@@ -18,6 +18,11 @@ kubectl apply -f https://raw.githubusercontent.com/Kong/charts/main/charts/kong/
   ([#531](https://github.com/Kong/charts/pull/531))
 * Added support for non `KONG_` prefixed custom environment variables
 
+### Fixed
+
+* Removed CREATE from ValidatingWebhookConfiguration objectSelector for Secrets to align with changes in Kong/kubernetes-ingress-controller.
+  ([#542](https://github.com/Kong/charts/pull/542))
+
 ## 2.6.5
 
 ### Fixed
