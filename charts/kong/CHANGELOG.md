@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+* feat(deployment) allow custom environment variables to be configured for the ingress-controller container
+  ([568](https://github.com/Kong/charts/pull/568))
+* Ingress `pathType` field is now configurable.
+  ([564](https://github.com/Kong/charts/pull/564))
+* Added IngressClass resources to RBAC roles.
+  ([563](https://github.com/Kong/charts/pull/563))
+* Ingresses now support wildcard hostnames.
+  ([559](https://github.com/Kong/charts/pull/559))
+* Enables the option to add sidecar containers to the migration containers.
+  ([540](https://github.com/Kong/charts/pull/540))
+* Update the IngressClass controller string to match the value used upstream.
+  ([557](https://github.com/Kong/charts/pull/557))
+* Added support for user-defined controller volume mounts.
+  ([560](https://github.com/Kong/charts/pull/560))
+* Added support for autoscaling `behavior`.
+  ([561](https://github.com/Kong/charts/pull/561))
+* Improved support and documentation for installations that [lack
+  cluster-scoped permissions](https://github.com/Kong/charts/blob/main/charts/kong/README.md#removing-cluster-scoped-permissions).
+  ([565](https://github.com/Kong/charts/pull/565))
+  
+### Fixed
+
+* Removed CREATE from ValidatingWebhookConfiguration objectSelector for Secrets to align with changes in Kong/kubernetes-ingress-controller.
+  ([#542](https://github.com/Kong/charts/pull/542))
+* Fixed traffic routing from Istio's envoy proxy to Kong proxy when using Istio's AuthorizationPolicy.
+  ([#550](https://github.com/Kong/charts/pull/550))
+* Fixed creation of non-default IngressClasses
+  ([#552](https://github.com/Kong/charts/pull/552))
+* Fixed: wait_for_db no longer tries to instantiate the keyring in Kong Enterprise
+  ([#556](https://github.com/Kong/charts/pull/556))
+
 ## 2.7.0
 
 2.7.0 includes CRD updates, which [must be applied manually](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#270).

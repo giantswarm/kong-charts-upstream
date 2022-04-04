@@ -40,8 +40,10 @@ $ helm install kong/kong --generate-name
   - [InitContainers](#initcontainers)
   - [HostAliases](#hostaliases)
   - [Sidecar Containers](#sidecar-containers)
+  - [Migration Sidecar Containers](#migration-sidecar-containers)
   - [User Defined Volumes](#user-defined-volumes)
   - [User Defined Volume Mounts](#user-defined-volume-mounts)
+  - [Removing cluster-scoped permissions](#removing-cluster-scoped-permissions)
   - [Using a DaemonSet](#using-a-daemonset)
   - [Example configurations](#example-configurations)
 - [Configuration](#configuration)
@@ -452,12 +454,19 @@ event you need to recover from unintended CRD deletion.
 
 ### InitContainers
 
-The chart able to deploy initcontainers along with Kong. This can be very useful when require to setup additional custom initialization. The `deployment.initcontainers` field in values.yaml takes an array of objects that get appended as-is to the existing `spec.template.initContainers` array in the kong deployment resource. 
+The chart is able to deploy initcontainers along with Kong. This can be very
+useful when there's a requirement for custom initialization. The
+`deployment.initcontainers` field in values.yaml takes an array of objects that
+get appended as-is to the existing `spec.template.initContainers` array in the
+kong deployment resource. 
 
 ### HostAliases
 
-The chart able to inject host aliases into containers. This can be very useful when require to resolve additional domain name which can't
-be looked-up directly from dns server. The `deployment.hostAliases` field in values.yaml takes an array of objects that set to `spec.template.hostAliases` field in the kong deployment resource.
+The chart is able to inject host aliases into containers. This can be very useful
+when it's required to resolve additional domain name which can't be looked-up
+directly from dns server. The `deployment.hostAliases` field in values.yaml
+takes an array of objects that set to `spec.template.hostAliases` field in the
+kong deployment resource.
 
 ### Sidecar Containers
 
@@ -468,13 +477,60 @@ be useful to include network proxies or logging services along with Kong.  The
 that get appended as-is to the existing `spec.template.spec.containers` array
 in the Kong deployment resource.
 
+### Migration Sidecar Containers
+
+In the same way sidecar containers are attached to the Kong and Ingress 
+Controller containers the chart can add sidecars to the containers that runs
+the migrations. The
+`migrations.sidecarContainers` field in values.yaml takes an array of objects
+that get appended as-is to the existing `spec.template.spec.containers` array
+in the pre-upgrade-migrations, post-upgrade-migrations and migration resrouces.
+Keep in mind the containers should be finite and they should be terminated
+with the migration containers, otherwise the migration could get the status
+as finished and the deployment of the chart will reach the timeout.
+
 ### User Defined Volumes
 
-The chart can deploy additional volumes along with Kong. This can be useful to include additional volumes which required during iniatilization phase (InitContainer). The  `deployment.userDefinedVolumes` field in values.yaml takes an array of objects that get appended as-is to the existing `spec.template.spec.volumes` array in the kong deployment resource.
+The chart can deploy additional volumes along with Kong. This can be useful to
+include additional volumes which required during iniatilization phase
+(InitContainer). The  `deployment.userDefinedVolumes` field in values.yaml
+takes an array of objects that get appended as-is to the existing
+`spec.template.spec.volumes` array in the kong deployment resource.
 
 ### User Defined Volume Mounts
 
-The chart can mount the volumes which defined in the `user defined volume` or others. The `deployment.userDefinedVolumeMounts` field in values.yaml takes an array of object that get appended as-is to the existing `spec.template.spec.containers[].volumeMounts` and `spec.template.spec.initContainers[].volumeMounts` array in the kong deployment resource.
+The chart can mount user-defined volumes. The
+`deployment.userDefinedVolumeMounts` and
+`ingressController.userDefinedVolumeMounts` fields in values.yaml take an array
+of object that get appended as-is to the existing
+`spec.template.spec.containers[].volumeMounts` and
+`spec.template.spec.initContainers[].volumeMounts` array in the kong deployment
+resource.
+
+### Removing cluster-scoped permissions
+
+You can limit the controller's access to allow it to only watch specific
+namespaces for resources. By default, the controller watches all namespaces.
+Limiting access requires several changes to configuration:
+
+- Set `ingressController.watchNamespaces` to a list of namespaces you want to
+  watch. The chart will automatically generate roles for each namespace and
+  assign them to the controller's service account.
+- Set `ingressController.env.enable_controller_kongclusterplugin=false` and
+  `ingressController.env.enable_controller_ingress_class_networkingv1=false`.
+  These are cluster-scoped resources, and controllers with no ClusterRole
+  cannot access them.
+- Optionally set `ingressContrller.installCRDs=false` if your user role (the
+  role you use when running `helm install`, not the controller service
+  account's role) does not have access to get CRDs. By default, the chart
+  attempts to look up the controller CRDs for [a legacy behavior
+  check](#crd-management).
+
+Because there is no namespaced version of IngressClass, controllers without
+cluster-scoped permissions cannot access them. The controller will rely
+entirely on whether the ingress class annotation or `ingressClassName` value
+matches the value set by `--ingress-class` or `CONTROLLER_INGRESS_CLASS` to
+determine which Ingresses it should use.
 
 ### Using a DaemonSet
 
@@ -555,36 +611,37 @@ nodes.
 mixed TCP/UDP LoadBalancer Services). It _does not_ support the `http`, `tls`,
 or `ingress` sections, as it is used only for stream listens.
 
-| Parameter                          | Description                                                                           | Default             |
-| ---------------------------------- | ------------------------------------------------------------------------------------- | ------------------- |
-| SVC.enabled                        | Create Service resource for SVC (admin, proxy, manager, etc.)                         |                     |
-| SVC.http.enabled                   | Enables http on the service                                                           |                     |
-| SVC.http.servicePort               | Service port to use for http                                                          |                     |
-| SVC.http.containerPort             | Container port to use for http                                                        |                     |
-| SVC.http.nodePort                  | Node port to use for http                                                             |                     |
-| SVC.http.hostPort                  | Host port to use for http                                                             |                     |
-| SVC.http.parameters                | Array of additional listen parameters                                                 | `[]`                |
-| SVC.tls.enabled                    | Enables TLS on the service                                                            |                     |
-| SVC.tls.containerPort              | Container port to use for TLS                                                         |                     |
-| SVC.tls.servicePort                | Service port to use for TLS                                                           |                     |
-| SVC.tls.nodePort                   | Node port to use for TLS                                                              |                     |
-| SVC.tls.hostPort                   | Host port to use for TLS                                                              |                     |
-| SVC.tls.overrideServiceTargetPort  | Override service port to use for TLS without touching Kong containerPort              |                     |
-| SVC.tls.parameters                 | Array of additional listen parameters                                                 | `["http2"]`         |
-| SVC.type                           | k8s service type. Options: NodePort, ClusterIP, LoadBalancer                          |                     |
-| SVC.clusterIP                      | k8s service clusterIP                                                                 |                     |
-| SVC.loadBalancerSourceRanges       | Limit service access to CIDRs if set and service type is `LoadBalancer`               | `[]`                |
-| SVC.loadBalancerIP                 | Reuse an existing ingress static IP for the service                                   |                     |
-| SVC.externalIPs                    | IPs for which nodes in the cluster will also accept traffic for the servic            | `[]`                |
-| SVC.externalTrafficPolicy          | k8s service's externalTrafficPolicy. Options: Cluster, Local                          |                     |
-| SVC.ingress.enabled                | Enable ingress resource creation (works with SVC.type=ClusterIP)                      | `false`             |
-| SVC.ingress.ingressClassName       | Set the ingressClassName to associate this Ingress with an IngressClass               |                     |
-| SVC.ingress.tls                    | Name of secret resource, containing TLS secret                                        |                     |
-| SVC.ingress.hostname               | Ingress hostname                                                                      | `""`                |
-| SVC.ingress.path                   | Ingress path.                                                                         | `/`                 |
-| SVC.ingress.annotations            | Ingress annotations. See documentation for your ingress controller for details        | `{}`                |
-| SVC.annotations                    | Service annotations                                                                   | `{}`                |
-| SVC.labels                         | Service labels                                                                        | `{}`                |
+| Parameter                          | Description                                                                           | Default                  |
+|------------------------------------|---------------------------------------------------------------------------------------|--------------------------|
+| SVC.enabled                        | Create Service resource for SVC (admin, proxy, manager, etc.)                         |                          |
+| SVC.http.enabled                   | Enables http on the service                                                           |                          |
+| SVC.http.servicePort               | Service port to use for http                                                          |                          |
+| SVC.http.containerPort             | Container port to use for http                                                        |                          |
+| SVC.http.nodePort                  | Node port to use for http                                                             |                          |
+| SVC.http.hostPort                  | Host port to use for http                                                             |                          |
+| SVC.http.parameters                | Array of additional listen parameters                                                 | `[]`                     |
+| SVC.tls.enabled                    | Enables TLS on the service                                                            |                          |
+| SVC.tls.containerPort              | Container port to use for TLS                                                         |                          |
+| SVC.tls.servicePort                | Service port to use for TLS                                                           |                          |
+| SVC.tls.nodePort                   | Node port to use for TLS                                                              |                          |
+| SVC.tls.hostPort                   | Host port to use for TLS                                                              |                          |
+| SVC.tls.overrideServiceTargetPort  | Override service port to use for TLS without touching Kong containerPort              |                          |
+| SVC.tls.parameters                 | Array of additional listen parameters                                                 | `["http2"]`              |
+| SVC.type                           | k8s service type. Options: NodePort, ClusterIP, LoadBalancer                          |                          |
+| SVC.clusterIP                      | k8s service clusterIP                                                                 |                          |
+| SVC.loadBalancerSourceRanges       | Limit service access to CIDRs if set and service type is `LoadBalancer`               | `[]`                     |
+| SVC.loadBalancerIP                 | Reuse an existing ingress static IP for the service                                   |                          |
+| SVC.externalIPs                    | IPs for which nodes in the cluster will also accept traffic for the servic            | `[]`                     |
+| SVC.externalTrafficPolicy          | k8s service's externalTrafficPolicy. Options: Cluster, Local                          |                          |
+| SVC.ingress.enabled                | Enable ingress resource creation (works with SVC.type=ClusterIP)                      | `false`                  |
+| SVC.ingress.ingressClassName       | Set the ingressClassName to associate this Ingress with an IngressClass               |                          |
+| SVC.ingress.tls                    | Name of secret resource, containing TLS secret                                        |                          |
+| SVC.ingress.hostname               | Ingress hostname                                                                      | `""`                     |
+| SVC.ingress.path                   | Ingress path.                                                                         | `/`                      |
+| SVC.ingress.pathType               | Ingress pathType. One of `ImplementationSpecific`, `Exact` or `Prefix`                | `ImplementationSpecific` |
+| SVC.ingress.annotations            | Ingress annotations. See documentation for your ingress controller for details        | `{}`                     |
+| SVC.annotations                    | Service annotations                                                                   | `{}`                     |
+| SVC.labels                         | Service labels                                                                        | `{}`                     |
 
 #### Stream listens
 
@@ -605,30 +662,49 @@ are configured using an array of objects under `proxy.stream` and `udpProxy.stre
 All of the following properties are nested under the `ingressController`
 section of `values.yaml` file:
 
-| Parameter                          | Description                                                                           | Default                                                                      |
-| ---------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| enabled                            | Deploy the ingress controller, rbac and crd                                           | true                                                                         |
-| image.repository                   | Docker image with the ingress controller                                              | kong/kubernetes-ingress-controller |
-| image.tag                          | Version of the ingress controller                                                     | 2.0 |
-| image.effectiveSemver              | Version of the ingress controller used for version-specific features when image.tag is not a valid semantic version | |
-| readinessProbe                     | Kong ingress controllers readiness probe                                              |                                                                              |
-| livenessProbe                      | Kong ingress controllers liveness probe                                               |                                                                              |
-| installCRDs                        | Creates managed CRDs.                                                                 | false
-| env                                | Specify Kong Ingress Controller configuration via environment variables               |                                                                              |
-| ingressClass                       | The name of this controller's ingressClass                                                | kong                                                                         |
-| ingressClassAnnotations            | The ingress-class value for controller                                                | kong                                                                         |
-| args                               | List of ingress-controller cli arguments                                              | []                                                                           |
-| watchNamespaces                    | List of namespaces to watch. Watches all namespaces if empty                          | []                                                                           |
-| admissionWebhook.enabled           | Whether to enable the validating admission webhook                                    | false                                                                        |
-| admissionWebhook.failurePolicy     | How unrecognized errors from the admission endpoint are handled (Ignore or Fail)      | Fail                                                                         |
-| admissionWebhook.port              | The port the ingress controller will listen on for admission webhooks                 | 8080                                                                         |
-| admissionWebhook.certificate.provided   | Whether to generate the admission webhook certificate if not provided            | false                                                                        |
-| admissionWebhook.certificate.secretName | Name of the TLS secret for the provided webhook certificate                      |                                                                            |
-| admissionWebhook.certificate.caBundle   | PEM encoded CA bundle which will be used to validate the provided webhook certificate |                                                                            |
+| Parameter                               | Description                                                                                                         | Default                                                                      |
+|-----------------------------------------|---------------------------------------------------------------------------------------------------------------------| ---------------------------------------------------------------------------- |
+| enabled                                 | Deploy the ingress controller, rbac and crd                                                                         | true                                                                         |
+| image.repository                        | Docker image with the ingress controller                                                                            | kong/kubernetes-ingress-controller                                           |
+| image.tag                               | Version of the ingress controller                                                                                   | 2.0                                                                          |
+| image.effectiveSemver                   | Version of the ingress controller used for version-specific features when image.tag is not a valid semantic version |                                                |
+| readinessProbe                          | Kong ingress controllers readiness probe                                                                            |                                                                              |
+| livenessProbe                           | Kong ingress controllers liveness probe                                                                             |                                                                              |
+| installCRDs                             | Creates managed CRDs.                                                                                               | false                                                                        |
+| env                                     | Specify Kong Ingress Controller configuration via environment variables                                             |                                                                              |
+| customEnv                               | Specify custom environment variables (without the CONTROLLER_ prefix)                                               |                                                                              |
+| ingressClass                            | The name of this controller's ingressClass                                                                          | kong                                                                         |
+| ingressClassAnnotations                 | The ingress-class value for controller                                                                              | kong                                                                         |
+| args                                    | List of ingress-controller cli arguments                                                                            | []                                                                           |
+| watchNamespaces                         | List of namespaces to watch. Watches all namespaces if empty                                                        | []                                                                           |
+| admissionWebhook.enabled                | Whether to enable the validating admission webhook                                                                  | false                                                                        |
+| admissionWebhook.failurePolicy          | How unrecognized errors from the admission endpoint are handled (Ignore or Fail)                                    | Fail                                                                         |
+| admissionWebhook.port                   | The port the ingress controller will listen on for admission webhooks                                               | 8080                                                                         |
+| admissionWebhook.certificate.provided   | Whether to generate the admission webhook certificate if not provided                                               | false                                                                        |
+| admissionWebhook.certificate.secretName | Name of the TLS secret for the provided webhook certificate                                                         |                                                                              |
+| admissionWebhook.certificate.caBundle   | PEM encoded CA bundle which will be used to validate the provided webhook certificate                               |                                                                         |
+| deployment.userDefinedVolumes           | Create volumes. Please go to Kubernetes doc for the spec of the volumes                                             |                                                                              |
+| deployment.userDefinedVolumeMounts      | Create volumeMounts. Please go to Kubernetes doc for the spec of the volumeMounts                                   |                                                                              |
 
+#### The `env` section
 For a complete list of all configuration values you can set in the
 `env` section, please read the Kong Ingress Controller's
 [configuration document](https://github.com/Kong/kubernetes-ingress-controller/blob/main/docs/references/cli-arguments.md).
+
+#### The `customEnv` section
+
+The `customEnv` section can be used to configure all environment variables other than Ingress Controller configuration.
+Any key value put under this section translates to environment variables.
+Every key is upper-cased before setting the environment variable.
+
+An example:
+
+```yaml
+kong:
+  ingressController:
+    customEnv:
+      TZ: "Europe/Berlin"
+```
 
 ### General Parameters
 
@@ -647,6 +723,7 @@ For a complete list of all configuration values you can set in the
 | autoscaling.enabled                | Set this to `true` to enable autoscaling                                              | `false`             |
 | autoscaling.minReplicas            | Set minimum number of replicas                                                        | `2`                 |
 | autoscaling.maxReplicas            | Set maximum number of replicas                                                        | `5`                 |
+| autoscaling.behavior               | Sets the [behavior for scaling up and down](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior) | `{}`                |
 | autoscaling.targetCPUUtilizationPercentage | Target Percentage for when autoscaling takes affect. Only used if cluster doesnt support `autoscaling/v2beta2` | `80`  |
 | autoscaling.metrics                | metrics used for autoscaling for clusters that support autoscaling/v2beta2`           | See [values.yaml](values.yaml) |
 | updateStrategy                     | update strategy for deployment                                                        | `{}`                |
@@ -784,7 +861,8 @@ configuration can be placed under the `.env` key.
 
 Kong Enterprise 2.3+ can run with or without a license. If you wish to run 2.3+
 without a license, you can skip this step and leave `enterprise.license_secret`
-unset. In this case only a limited subset of features will be available. Earlier versions require a license.
+unset. In this case only a limited subset of features will be available.
+Earlier versions require a license.
 
 If you have paid for a license, but you do not have a copy of yours, please
 contact Kong Support. Once you have it, you will need to store it in a Secret:
@@ -911,7 +989,10 @@ Setting `.enterprise.smtp.disabled: true` will set `KONG_SMTP_MOCK=on` and
 allow Admin/Developer invites to proceed without sending email. Note, however,
 that these have limited functionality without sending email.
 
-If your SMTP server requires authentication, you must provide the `username` and `smtp_password_secret` keys under `.enterprise.smtp.auth`. `smtp_password_secret` must be a Secret containing an `smtp_password` key whose value is your SMTP password.
+If your SMTP server requires authentication, you must provide the `username`
+and `smtp_password_secret` keys under `.enterprise.smtp.auth`.
+`smtp_password_secret` must be a Secret containing an `smtp_password` key whose
+value is your SMTP password.
 
 By default, SMTP uses `AUTH` `PLAIN` when you provide credentials. If your provider requires `AUTH LOGIN`, set `smtp_auth_type: login`.
 

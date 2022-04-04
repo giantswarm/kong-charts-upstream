@@ -39,6 +39,8 @@ deployment:
   #   hostnames:
   #   - "foo.local"
   #   - "bar.local"
+
+  ## Define any volumes and mounts you want present in the Kong proxy container
   # userDefinedVolumes:
   # - name: "volumeName"
   #   emptyDir: {}
@@ -85,6 +87,8 @@ env:
 # These custom environment variables are typicall used in custom plugins or serverless plugins to
 # access environment specific credentials or tokens.
 # Example as below, uncomment if required and add additional attributes as required.
+# Note that these environment variables will only apply to the proxy and init container. The ingress-controller
+# container has its own customEnv section.
 
 # customEnv:
 #   api_token:
@@ -100,10 +104,10 @@ extraLabels: {}
 # Specify Kong's Docker image and repository details here
 image:
   repository: kong
-  tag: "2.7"
+  tag: "2.8"
   # Kong Enterprise
   # repository: kong/kong-gateway
-  # tag: "2.7.0.0-alpine"
+  # tag: "2.8"
 
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
@@ -166,6 +170,8 @@ admin:
     annotations: {}
     # Ingress path.
     path: /
+    # Each path in an Ingress is required to have a corresponding path type. (ImplementationSpecific/Exact/Prefix)
+    pathType: ImplementationSpecific
 
 # Specify Kong status listener configuration
 # This listen is internal-only. It cannot be exposed through a service or ingress.
@@ -287,6 +293,8 @@ proxy:
     annotations: {}
     # Ingress path.
     path: /
+    # Each path in an Ingress is required to have a corresponding path type. (ImplementationSpecific/Exact/Prefix)
+    pathType: ImplementationSpecific
 
   # Optionally specify a static load balancer IP.
   # loadBalancerIP:
@@ -381,6 +389,13 @@ migrations:
   #   requests:
   #     cpu: 50m
   #     memory: 128Mi
+  ## Optionally specify any extra sidecar containers to be included in the deployment
+  ## See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#container-v1-core
+  ## Keep in mind these containers should be terminated along with the main
+  ## migration containers
+  # sidecarContainers:
+  #   - name: sidecar
+  #     image: sidecar:latest
 
 # Kong's configuration for DB-less mode
 # Note: Use this section only if you are deploying Kong in DB-less mode
@@ -399,6 +414,12 @@ dblessConfig:
       #   - name: example
       #     paths:
       #     - "/example"
+  ## Optionally specify any extra sidecar containers to be included in the
+  ## migration jobs
+  ## See https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#container-v1-core
+  # sidecarContainers:
+  #   - name: sidecar
+  #     image: sidecar:latest
 
 # -----------------------------------------------------------------------------
 # Ingress Controller parameters
@@ -443,6 +464,11 @@ ingressController:
     #        name: CHANGEME-admin-token-secret
     #        key: CHANGEME-admin-token-key
 
+  # This section is any customer specific environments variables that doesn't require CONTROLLER_ prefix.
+  # Example as below, uncomment if required and add additional attributes as required.
+  # customEnv:
+  #   TZ: "Europe/Berlin"
+
   admissionWebhook:
     enabled: false
     failurePolicy: Fail
@@ -459,6 +485,12 @@ ingressController:
   ingressClass: kong
   # annotations for IngressClass resource (Kubernetes 1.18+)
   ingressClassAnnotations: {}
+
+  ## Define any volumes and mounts you want present in the ingress controller container
+  ## Volumes are defined above in deployment.userDefinedVolumes
+  # userDefinedVolumeMounts:
+  # - name: "volumeName"
+  #   mountPath: "/opt/user/dir/mount"
 
   rbac:
     # Specifies whether RBAC resources should be created
@@ -631,6 +663,7 @@ autoscaling:
   enabled: false
   minReplicas: 2
   maxReplicas: 5
+  behavior: {}
   ## targetCPUUtilizationPercentage only used if the cluster doesn't support autoscaling/v2beta
   targetCPUUtilizationPercentage:
   ## Otherwise for clusters that do support autoscaling/v2beta, use metrics
@@ -808,6 +841,8 @@ manager:
     annotations: {}
     # Ingress path.
     path: /
+    # Each path in an Ingress is required to have a corresponding path type. (ImplementationSpecific/Exact/Prefix)
+    pathType: ImplementationSpecific
 
 portal:
   # Enable creating a Kubernetes service for the Developer Portal
@@ -852,6 +887,8 @@ portal:
     annotations: {}
     # Ingress path.
     path: /
+    # Each path in an Ingress is required to have a corresponding path type. (ImplementationSpecific/Exact/Prefix)
+    pathType: ImplementationSpecific
 
 portalapi:
   # Enable creating a Kubernetes service for the Developer Portal API
@@ -896,6 +933,8 @@ portalapi:
     annotations: {}
     # Ingress path.
     path: /
+    # Each path in an Ingress is required to have a corresponding path type. (ImplementationSpecific/Exact/Prefix)
+    pathType: ImplementationSpecific
 
 clustertelemetry:
   enabled: false
