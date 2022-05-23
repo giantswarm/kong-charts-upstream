@@ -98,12 +98,10 @@ spec:
               port:
                 number: {{ $servicePort }}
             {{- end }}
-          {{- if $path }}
           path: {{ $path }}
           {{- if (not (eq .ingressVersion "extensions/v1beta1")) }}
           pathType: {{ $pathType }}
           {{- end }}
-          {{- end -}}
   {{- if (hasKey .ingress "tls") }}
   tls:
   - hosts:
@@ -450,7 +448,7 @@ The name of the service used for the ingress controller's validation webhook
     secretName: {{ .Values.ingressController.admissionWebhook.certificate.secretName }}
     {{- else }}
     secretName: {{ template "kong.fullname" . }}-validation-webhook-keypair
-    {{- end }}  
+    {{- end }}
 {{- end }}
 {{- range $secretVolume := .Values.secretVolumes }}
 - name: {{ . }}
@@ -546,7 +544,7 @@ The name of the service used for the ingress controller's validation webhook
   image: {{ include "kong.getRepoTag" .Values.image }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   securityContext:
-  {{ toYaml .Values.containerSecurityContext | nindent 4 }} 
+  {{ toYaml .Values.containerSecurityContext | nindent 4 }}
   env:
   {{- include "kong.env" . | nindent 2 }}
 {{/* TODO the prefix override is to work around https://github.com/Kong/charts/issues/295
@@ -571,7 +569,7 @@ The name of the service used for the ingress controller's validation webhook
 {{- define "kong.controller-container" -}}
 - name: ingress-controller
   securityContext:
-{{ toYaml .Values.containerSecurityContext | nindent 4 }}  
+{{ toYaml .Values.containerSecurityContext | nindent 4 }}
   args:
   {{ if .Values.ingressController.args}}
   {{- range $val := .Values.ingressController.args }}
@@ -1058,6 +1056,7 @@ Kubernetes namespace-scoped resources it uses to build Kong configuration.
   - get
   - patch
   - update
+{{- if (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") -}}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
@@ -1097,6 +1096,7 @@ Kubernetes namespace-scoped resources it uses to build Kong configuration.
   - get
   - list
   - watch
+{{- end }}
 - apiGroups:
   - networking.internal.knative.dev
   resources:
@@ -1152,6 +1152,7 @@ Kubernetes Cluster-scoped resources it uses to build Kong configuration.
   - get
   - patch
   - update
+{{- if (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") -}}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
@@ -1167,6 +1168,7 @@ Kubernetes Cluster-scoped resources it uses to build Kong configuration.
   verbs:
   - get
   - update
+{{- end }}
 - apiGroups:
   - networking.k8s.io
   resources:

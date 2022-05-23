@@ -2,9 +2,39 @@
 
 ## Unreleased
 
+Nothing yet.
+
+## 2.8.1
+
+### Fixed
+
+* Fixed an unwanted newline chomp in fix PR #595.
+  ([594](https://github.com/Kong/charts/pull/594))
+
+## 2.8.1
+
+### Fixed
+
+* Fixed the stream default type, which should have been an empty array, not an
+  empty map. This had no effect on chart behavior, but resulted in warning
+  messages when user values.yamls contained non-empty stream configuration.
+  ([594](https://github.com/Kong/charts/pull/594))
+* Gateway API permissions are no longer created if Gateway API CRDs are not
+  installed on the cluster. This would block installs by non-super admin users.
+  ([595](https://github.com/Kong/charts/pull/595))
+
+## 2.8.0
+
+### Breaking changes
+
+2.8 requires manual removal of existing IngressClass resources and updates the
+Postgres sub-chart version. Further details are available [in the upgrade guide](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#280).
+
 ### Improvements
 
-* feat(deployment) allow custom environment variables to be configured for the ingress-controller container
+* Added Ingress for cluster sync.
+  ([583](https://github.com/Kong/charts/pull/583))
+* Added controller support for custom environment variables.
   ([568](https://github.com/Kong/charts/pull/568))
 * Ingress `pathType` field is now configurable.
   ([564](https://github.com/Kong/charts/pull/564))
@@ -23,6 +53,9 @@
 * Improved support and documentation for installations that [lack
   cluster-scoped permissions](https://github.com/Kong/charts/blob/main/charts/kong/README.md#removing-cluster-scoped-permissions).
   ([565](https://github.com/Kong/charts/pull/565))
+* Updated podDisruptionBudget from `policy/v1beta1` to `policy/v1`.
+  ([574](https://github.com/Kong/charts/pull/574))
+* Updated controller version to 2.3.
   
 ### Fixed
 

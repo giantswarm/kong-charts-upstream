@@ -217,6 +217,23 @@ cluster:
 
   type: ClusterIP
 
+  # Kong cluster ingress settings. Useful if you want to split CP and DP
+  # in different clusters.
+  ingress:
+    # Enable/disable exposure using ingress.
+    enabled: false
+    ingressClassName:
+    # TLS secret name.
+    # tls: kong-cluster.example.com-tls
+    # Ingress hostname
+    hostname:
+    # Map of ingress annotations.
+    annotations: {}
+    # Ingress path.
+    path: /
+    # Each path in an Ingress is required to have a corresponding path type. (ImplementationSpecific/Exact/Prefix)
+    pathType: ImplementationSpecific
+
 # Specify Kong proxy service configuration
 proxy:
   # Enable creating a Kubernetes service for the proxy
@@ -258,14 +275,14 @@ proxy:
     - http2
 
   # Define stream (TCP) listen
-  # To enable, remove "{}", uncomment the section below, and select your desired
+  # To enable, remove "[]", uncomment the section below, and select your desired
   # ports and parameters. Listens are dynamically named after their servicePort,
   # e.g. "stream-9000" for the below.
   # Note: although you can select the protocol here, you cannot set UDP if you
   # use a LoadBalancer Service due to limitations in current Kubernetes versions.
   # To proxy both TCP and UDP with LoadBalancers, you must enable the udpProxy Service
   # in the next section and place all UDP stream listen configuration under it.
-  stream: {}
+  stream: []
     #   # Set the container (internal) and service (external) ports for this listen.
     #   # These values should normally be the same. If your environment requires they
     #   # differ, note that Kong will match routes based on the containerPort only.
@@ -317,10 +334,10 @@ udpProxy:
   # loadBalancerIP:
 
   # Define stream (UDP) listen
-  # To enable, remove "{}", uncomment the section below, and select your desired
+  # To enable, remove "[]", uncomment the section below, and select your desired
   # ports and parameters. Listens are dynamically named after their servicePort,
   # e.g. "stream-9000" for the below.
-  stream: {}
+  stream: []
     #   # Set the container (internal) and service (external) ports for this listen.
     #   # These values should normally be the same. If your environment requires they
     #   # differ, note that Kong will match routes based on the containerPort only.
@@ -432,7 +449,7 @@ ingressController:
   enabled: true
   image:
     repository: kong/kubernetes-ingress-controller
-    tag: "2.2"
+    tag: "2.3"
     # Optionally set a semantic version for version-gated features. This can normally
     # be left unset. You only need to set this if your tag is not a semver string,
     # such as when you are using a "next" tag. Set this to the effective semantic
@@ -964,6 +981,23 @@ clustertelemetry:
     parameters: []
 
   type: ClusterIP
+
+  # Kong clustertelemetry ingress settings. Useful if you want to split
+  # CP and DP in different clusters.
+  ingress:
+    # Enable/disable exposure using ingress.
+    enabled: false
+    ingressClassName:
+    # TLS secret name.
+    # tls: kong-clustertelemetry.example.com-tls
+    # Ingress hostname
+    hostname:
+    # Map of ingress annotations.
+    annotations: {}
+    # Ingress path.
+    path: /
+    # Each path in an Ingress is required to have a corresponding path type. (ImplementationSpecific/Exact/Prefix)
+    pathType: ImplementationSpecific
 
 extraConfigMaps: []
 # extraConfigMaps:

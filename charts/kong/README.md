@@ -159,13 +159,13 @@ You can provide an existing ConfigMap
 `values.yaml` (`dblessConfig.config`)
 parameter. See the example configuration in the default values.yaml
 for more details. You can use `--set-file dblessConfig.config=/path/to/declarative-config.yaml`
-in Helm commands to substitute in a complete declarative config file.    
-    
+in Helm commands to substitute in a complete declarative config file.
+
 Note that externally supplied ConfigMaps are not hashed or tracked in deployment annotations.
 Subsequent ConfigMap updates will require user-initiated new deployment rollouts
 to apply the new configuration. You should run `kubectl rollout restart deploy`
-after updating externally supplied ConfigMap content.    
-    
+after updating externally supplied ConfigMap content.
+
 #### Using the Postgres sub-chart
 
 The chart can optionally spawn a Postgres instance using [Bitnami's Postgres
@@ -228,8 +228,10 @@ Kong can be configured via two methods:
 split release technique is generally applicable to any deployment with
 different types of Kong nodes. Separating Admin API and proxy nodes is one of
 the more common use cases for splitting across multiple releases, but you can
-also split releases for hybrid mode CP/DP nodes, split proxy and Developer
-Portal nodes, etc.*
+also split releases for split proxy and Developer Portal nodes, multiple groups
+of proxy nodes with separate listen configurations for network segmentation, etc.
+However, it does not apply to hybrid mode, as only the control plane release
+interacts with the database.*
 
 Users may wish to split their Kong deployment into multiple instances that only
 run some of Kong's services (i.e. you run `helm install` once for every
@@ -306,6 +308,9 @@ values.yaml specifics for each.
 
 Cluster certificates are not generated automatically. You must [create a
 certificate and key pair](#certificates) for intra-cluster communication.
+
+When upgrading the Kong version, you must [upgrade the control plane release
+first and then upgrade the data plane release](https://docs.konghq.com/gateway/latest/plan-and-deploy/hybrid-mode/#version-compatibility).
 
 #### Certificates
 
@@ -458,7 +463,7 @@ The chart is able to deploy initcontainers along with Kong. This can be very
 useful when there's a requirement for custom initialization. The
 `deployment.initcontainers` field in values.yaml takes an array of objects that
 get appended as-is to the existing `spec.template.initContainers` array in the
-kong deployment resource. 
+kong deployment resource.
 
 ### HostAliases
 
@@ -479,7 +484,7 @@ in the Kong deployment resource.
 
 ### Migration Sidecar Containers
 
-In the same way sidecar containers are attached to the Kong and Ingress 
+In the same way sidecar containers are attached to the Kong and Ingress
 Controller containers the chart can add sidecars to the containers that runs
 the migrations. The
 `migrations.sidecarContainers` field in values.yaml takes an array of objects
@@ -735,7 +740,7 @@ kong:
 | topologySpreadConstraints          | Control how Pods are spread across cluster among failure-domains                      |                     |
 | nodeSelector                       | Node labels for pod assignment                                                        | `{}`                |
 | deploymentAnnotations              | Annotations to add to deployment                                                      |  see `values.yaml`  |
-| podAnnotations                     | Annotations to add to each pod                                                        | `{}`                |
+| podAnnotations                     | Annotations to add to each pod                                                        |  see `values.yaml`  |
 | podLabels                          | Labels to add to each pod                                                             | `{}`                |
 | resources                          | Pod resource requests & limits                                                        | `{}`                |
 | tolerations                        | List of node taints to tolerate                                                       | `[]`                |
@@ -760,7 +765,7 @@ kong:
 | extraConfigMaps                    | ConfigMaps to add to mounted volumes                                                  | `[]`                |
 | extraSecrets                       | Secrets to add to mounted volumes                                                     | `[]`                |
 
-**Note:** If you are using `deployment.hostNetwork` to bind to lower ports ( < 1024), which may be the desired option (ports 80 and 433), you also 
+**Note:** If you are using `deployment.hostNetwork` to bind to lower ports ( < 1024), which may be the desired option (ports 80 and 433), you also
 need to tweak the `containerSecurityContext` configuration as in the example:
 
 ```yaml
@@ -770,6 +775,20 @@ containerSecurityContext: # run as root to bind to lower ports
   runAsGroup: 0
   runAsNonRoot: false
   runAsUser: 0
+```
+
+**Note:** The default `podAnnotations` values disable inbound proxying for Kuma 
+and Istio. This is appropriate when using Kong as a gateway for external 
+traffic inbound into the cluster.
+
+If you want to use Kong as an internal proxy within the cluster network, you 
+should enable inbound the inbound mesh proxies:
+
+```yaml
+# Enable inbound mesh proxying for Kuma and Istio
+podAnnotations:
+  kuma.io/gateway: disabled
+  traffic.sidecar.istio.io/includeInboundPorts: "*"
 ```
 
 #### The `env` section
@@ -811,7 +830,7 @@ An example:
 
 ```yaml
 kong:
-  customEnv:                       
+  customEnv:
     api_token:
       valueFrom:
         secretKeyRef:

@@ -17,6 +17,7 @@ upgrading from a previous version.
 ## Table of contents
 
 - [Upgrade considerations for all versions](#upgrade-considerations-for-all-versions)
+- [2.8.0](#280)
 - [2.7.0](#270)
 - [2.4.0](#240)
 - [2.3.0](#230)
@@ -45,6 +46,9 @@ migrations finish`.
 If you split your Kong deployment across multiple Helm releases (to create
 proxy-only and admin-only nodes, for example), you must
 [set which migration jobs run based on your upgrade order](https://github.com/Kong/charts/blob/main/charts/kong/README.md#separate-admin-and-proxy-nodes).
+However, this does not apply to hybrid mode, which can run both migrations but
+requires [upgrading the control plane version
+first](https://docs.konghq.com/gateway/latest/plan-and-deploy/hybrid-mode/#version-compatibility).
 
 While the migrations themselves are automated, the chart does not automatically
 ensure that you follow the recommended upgrade path. If you are upgrading from
@@ -61,6 +65,55 @@ text ending with `field is immutable`. This is typically due to a bug with the
 `init-migrations` job, which was not removed automatically prior to 1.5.0.
 If you encounter this error, deleting any existing `init-migrations` jobs will
 clear it.
+
+## 2.8.0
+
+### IngressClass controller name change requires manual delete
+
+2.8 updates the chart-managed IngressClass's controller name to match the
+controller name used elsewhere in Kong's documenation. Controller names are
+immutable, so Helm cannot actually update existing IngressClass resources.
+
+Prior to your upgrade, you must delete the existing IngressClass. Helm will
+create a new IngressClass with the new controller name during the upgrade:
+
+```
+kubectl delete ingressclass <class name, "kong" by default>
+helm upgrade RELEASE_NAME kong/kong ...
+```
+
+Removing the IngressClass will not affect configuration: the controller
+IngressClass implementation is still in progress, and it will still ingest
+resources whose `ingress.class` annotation or `ingressClassName` value matches
+the the `CONTROLLER_INGRESS_CLASS` value in the controller environment even if
+no matching IngressClass exists.
+
+### Postgres subchart version update
+
+2.8 updates the Postgres subchart version from 8.6.8 to 11.1.15. This changes
+a number of values.yaml keys and the default Postgres version. The previous
+default Postgres version was [11.7.0-debian-10-r37](https://github.com/bitnami/charts/blob/590c6b0f4e07161614453b12efe71f22e0c00a46/bitnami/postgresql/values.yaml#L18).
+
+To use the new version on an existing install, you should [follow Bitnami's
+instructions for updating values.yaml keys and upgrading their chart]() as well
+as [the Postgres upgrade instructions](https://www.postgresql.org/docs/current/upgrading.html).
+
+You can alternately use the new chart without upgrading Postgres by setting
+`postgresql.image.tag=11.7.0-debian-10-r37` or use the old version of the
+chart. Helm documentation is unclear on whether ignoring a subchart version
+change for a release is possible, so we recommend [dumping the
+database](https://www.postgresql.org/docs/current/backup-dump.html) and
+creating a separate release if you wish to continue using 8.6.8:
+
+```
+$ helm install my-release -f values.yaml --version 8.6.8 bitnami/postgresql
+```
+
+Afterwords, you will upgrade your Kong chart release with
+`postgresql.enabled=false` and `env.pg_host` and `env.pg_password` set to the
+appropriate hostname and Secret reference for your new release (these are set
+automatically when the subchart is enabled, but will not be set automatically
+with a separate release).
 
 ## 2.7.0
 
