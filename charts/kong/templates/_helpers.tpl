@@ -60,6 +60,13 @@ Create the name of the service account to use
 {{- end -}}
 
 {{/*
+Create the name of the secret for service account token to use
+*/}}
+{{- define "kong.serviceAccountTokenName" -}}
+{{ include "kong.serviceAccountName" . }}-token
+{{- end -}}
+
+{{/*
 Create Ingress resource for a Kong service
 */}}
 {{- define "kong.ingress" -}}
@@ -249,11 +256,11 @@ Parameters: takes a service (e.g. .Values.proxy) as its argument and returns KON
   {{- $portMaps := list -}}
 
   {{- if .http.enabled -}}
-		{{- $portMaps = append $portMaps (printf "%d:%d" (int64 .http.servicePort) (int64 .http.containerPort)) -}}
+        {{- $portMaps = append $portMaps (printf "%d:%d" (int64 .http.servicePort) (int64 .http.containerPort)) -}}
   {{- end -}}
 
   {{- if .tls.enabled -}}
-		{{- $portMaps = append $portMaps (printf "%d:%d" (int64 .tls.servicePort) (int64 .tls.containerPort)) -}}
+        {{- $portMaps = append $portMaps (printf "%d:%d" (int64 .tls.servicePort) (int64 .tls.containerPort)) -}}
   {{- end -}}
 
   {{- $portMapsString := ($portMaps | join ", ") -}}
@@ -603,8 +610,8 @@ The name of the service used for the ingress controller's validation webhook
   imagePullPolicy: {{ .Values.image.pullPolicy }}
 {{/* disableReadiness is a hidden setting to drop this block entirely for use with a debugger
      Helm value interpretation doesn't let you replace the default HTTP checks with any other
-	 check type, and all HTTP checks freeze when a debugger pauses operation.
-	 Setting disableReadiness to ANY value disables the probes.
+     check type, and all HTTP checks freeze when a debugger pauses operation.
+     Setting disableReadiness to ANY value disables the probes.
 */}}
 {{- if (not (hasKey .Values.ingressController "disableProbes")) }}
   readinessProbe:
@@ -614,10 +621,16 @@ The name of the service used for the ingress controller's validation webhook
 {{- end }}
   resources:
 {{ toYaml .Values.ingressController.resources | indent 4 }}
+  terminationGracePeriodSeconds: {{ .Values.ingressController.terminationGracePeriodSecond }}
   volumeMounts:
 {{- if .Values.ingressController.admissionWebhook.enabled }}
   - name: webhook-cert
     mountPath: /admission-webhook
+    readOnly: true
+{{- end }}
+{{- if or .Values.deployment.serviceAccount.create .Values.deployment.serviceAccount.name }}
+  - name: {{ template "kong.serviceAccountTokenName" . }}
+    mountPath: /var/run/secrets/kubernetes.io/serviceaccount
     readOnly: true
 {{- end }}
   {{- include "kong.userDefinedVolumeMounts" .Values.ingressController | nindent 2 }}
@@ -1056,7 +1069,7 @@ Kubernetes namespace-scoped resources it uses to build Kong configuration.
   - get
   - patch
   - update
-{{- if (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") -}}
+{{- if (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") }}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
@@ -1088,6 +1101,8 @@ Kubernetes namespace-scoped resources it uses to build Kong configuration.
   verbs:
   - get
   - update
+{{- end }}
+{{- if (.Capabilities.APIVersions.Has "networking.internal.knative.dev/v1alpha1") }}
 - apiGroups:
   - networking.internal.knative.dev
   resources:
@@ -1096,7 +1111,6 @@ Kubernetes namespace-scoped resources it uses to build Kong configuration.
   - get
   - list
   - watch
-{{- end }}
 - apiGroups:
   - networking.internal.knative.dev
   resources:
@@ -1105,6 +1119,7 @@ Kubernetes namespace-scoped resources it uses to build Kong configuration.
   - get
   - patch
   - update
+{{- end }}
 - apiGroups:
   - networking.k8s.io
   resources:
@@ -1152,7 +1167,7 @@ Kubernetes Cluster-scoped resources it uses to build Kong configuration.
   - get
   - patch
   - update
-{{- if (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") -}}
+{{- if (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") }}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:

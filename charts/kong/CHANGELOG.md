@@ -2,9 +2,52 @@
 
 ## Unreleased
 
-Nothing yet.
+* Fix URL for more detail on Command Line Arguements / environment variables for Helm.
 
-## 2.8.1
+## 2.10.2
+
+### Fixed
+
+* Kuma now also mounts ServiceAccount tokens on releases without a controller
+  container.
+
+## 2.10.1
+
+### Fixed
+
+* Updated manual ServiceAccount Secret mount format for compatibility with
+  Kuma.
+
+## 2.10.0
+
+### Added
+
+* Added option to disable test job pods.
+  [#598](https://github.com/Kong/charts/issues/598)
+* Changed default admission failure policy from `Fail` to `Ignore`.
+  [#612](https://github.com/Kong/charts/issues/612)
+* ServiceAccount tokens are now only mounted in the controller container to
+  limit attack surface.
+  [#619](https://github.com/Kong/charts/issues/619)
+
+## 2.9.1
+
+### Fixed
+
+* Fixed another unwanted newline chomp that broke GatewayClass
+  permissions.
+
+## 2.9.0
+
+* Added terminationDelaySeconds for Ingress Controller.
+  ([597](https://github.com/Kong/charts/pull/597))
+* Made KNative permissions conditional on CRD availability.
+
+### Fixed
+
+* Removed KNative permission from the Gateway permissions set.
+
+## 2.8.2
 
 ### Fixed
 
@@ -29,6 +72,14 @@ Nothing yet.
 
 2.8 requires manual removal of existing IngressClass resources and updates the
 Postgres sub-chart version. Further details are available [in the upgrade guide](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#280).
+
+The chart honors `ingressController.installCRDs: false` again. Remove it from
+your values.yaml if it is currently present. Unless your install user [lacks
+permissions to read
+CRDs](https://github.com/Kong/charts/blob/main/charts/kong/README.md#removing-c
+luster-scoped-permissions), which would have prevented you from installing
+earlier chart versions, you should omit this setting and let the templates
+detect whether you use the legacy CRD installation method automatically.
 
 ### Improvements
 
