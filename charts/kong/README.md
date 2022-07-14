@@ -741,6 +741,7 @@ kong:
 | deployment.userDefinedVolumes      | Create volumes. Please go to Kubernetes doc for the spec of the volumes               |                     |
 | deployment.userDefinedVolumeMounts | Create volumeMounts. Please go to Kubernetes doc for the spec of the volumeMounts     |                     |
 | deployment.serviceAccount.create   | Create Service Account for the Deployment / Daemonset and the migrations              | `true`              |
+| deployment.serviceAccount.automountServiceAccountToken   | Enable ServiceAccount token automount in Kong deployment        | `false`             |
 | deployment.serviceAccount.name     | Name of the Service Account, a default one will be generated if left blank.           | ""                  |
 | deployment.serviceAccount.annotations | Annotations for the Service Account                                                | {}                  |
 | deployment.test.enabled            | Enable creation of test resources for use with "helm test"                            | `false`             |
@@ -783,6 +784,8 @@ kong:
 | serviceMonitor.metricRelabelings   | ServiceMonitor metricRelabelings                                                      | `{}`                |
 | extraConfigMaps                    | ConfigMaps to add to mounted volumes                                                  | `[]`                |
 | extraSecrets                       | Secrets to add to mounted volumes                                                     | `[]`                |
+| nameOverride                       | Replaces "kong" in resource names, like "RELEASENAME-nameOverride" instead of "RELEASENAME-kong" | `""`                |
+| fullnameOverride                   | Overrides the entire resource name string                                             | `""`                |
 
 **Note:** If you are using `deployment.hostNetwork` to bind to lower ports ( < 1024), which may be the desired option (ports 80 and 433), you also
 need to tweak the `containerSecurityContext` configuration as in the example:

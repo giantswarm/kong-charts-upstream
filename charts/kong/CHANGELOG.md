@@ -2,7 +2,29 @@
 
 ## Unreleased
 
-* Fix URL for more detail on Command Line Arguements / environment variables for Helm.
+Nothing yet.
+
+## 2.11.0
+
+### Fixed
+
+* Fixed Deployment missing if in case of empty tolerations
+  [#630](https://github.com/Kong/charts/issues/630)
+* Use stdout and stderr by default for all logs. Several were writing to prefix
+  directory files.
+  [#634](https://github.com/Kong/charts/issues/634)
+* Remove `terminationGracePeriodSeconds` from KIC's container spec since this
+  field is only applicable for pods, not containers.
+  [#640](https://github.com/Kong/charts/issues/640)
+
+### Improvements
+
+* Bump controller version to 2.5.
+  [#642](https://github.com/Kong/charts/issues/642)
+* Added `fullnameOverride` to override the normal resource name string.
+  [#635](https://github.com/Kong/charts/issues/635)
+* Added size limits for emptyDir mounts.
+  [#632](https://github.com/Kong/charts/issues/632)
 
 ## 2.10.2
 
@@ -107,7 +129,7 @@ detect whether you use the legacy CRD installation method automatically.
 * Updated podDisruptionBudget from `policy/v1beta1` to `policy/v1`.
   ([574](https://github.com/Kong/charts/pull/574))
 * Updated controller version to 2.3.
-  
+
 ### Fixed
 
 * Removed CREATE from ValidatingWebhookConfiguration objectSelector for Secrets to align with changes in Kong/kubernetes-ingress-controller.

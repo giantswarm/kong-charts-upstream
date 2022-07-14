@@ -14,7 +14,7 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 
 {{- define "kong.fullname" -}}
 {{- $name := default .Chart.Name .Values.nameOverride -}}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- default (printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-") .Values.fullnameOverride -}}
 {{- end -}}
 
 {{- define "kong.chart" -}}
@@ -410,9 +410,11 @@ The name of the service used for the ingress controller's validation webhook
 
 {{- define "kong.volumes" -}}
 - name: {{ template "kong.fullname" . }}-prefix-dir
-  emptyDir: {}
+  emptyDir: 
+    sizeLimit: {{ .Values.deployment.prefixDir.sizeLimit }}
 - name: {{ template "kong.fullname" . }}-tmp
-  emptyDir: {}
+  emptyDir: 
+    sizeLimit: {{ .Values.deployment.tmpDir.sizeLimit }}
 {{- if (and (.Values.postgresql.enabled) .Values.waitImage.enabled) }}
 - name: {{ template "kong.fullname" . }}-bash-wait-for-postgres
   configMap:
@@ -621,14 +623,13 @@ The name of the service used for the ingress controller's validation webhook
 {{- end }}
   resources:
 {{ toYaml .Values.ingressController.resources | indent 4 }}
-  terminationGracePeriodSeconds: {{ .Values.ingressController.terminationGracePeriodSecond }}
   volumeMounts:
 {{- if .Values.ingressController.admissionWebhook.enabled }}
   - name: webhook-cert
     mountPath: /admission-webhook
     readOnly: true
 {{- end }}
-{{- if or .Values.deployment.serviceAccount.create .Values.deployment.serviceAccount.name }}
+{{- if (and (not .Values.deployment.serviceAccount.automountServiceAccountToken) (or .Values.deployment.serviceAccount.create .Values.deployment.serviceAccount.name)) }}
   - name: {{ template "kong.serviceAccountTokenName" . }}
     mountPath: /var/run/secrets/kubernetes.io/serviceaccount
     readOnly: true
@@ -667,6 +668,15 @@ the template that it itself is using form the above sections.
 {{- $autoEnv := dict -}}
 
 {{- $_ := set $autoEnv "KONG_LUA_PACKAGE_PATH" "/opt/?.lua;/opt/?/init.lua;;" -}}
+
+{{- $_ := set $autoEnv "KONG_PROXY_ACCESS_LOG" "/dev/stdout" -}}
+{{- $_ := set $autoEnv "KONG_PROXY_STREAM_ACCESS_LOG" "/dev/stdout basic" -}}
+{{- $_ := set $autoEnv "KONG_ADMIN_ACCESS_LOG" "/dev/stdout" -}}
+{{- $_ := set $autoEnv "KONG_STATUS_ACCESS_LOG" "off" -}}
+{{- $_ := set $autoEnv "KONG_PROXY_ERROR_LOG" "/dev/stderr" -}}
+{{- $_ := set $autoEnv "KONG_PROXY_STREAM_ERROR_LOG" "/dev/stderr" -}}
+{{- $_ := set $autoEnv "KONG_ADMIN_ERROR_LOG" "/dev/stderr" -}}
+{{- $_ := set $autoEnv "KONG_STATUS_ERROR_LOG" "/dev/stderr" -}}
 
 {{- if .Values.ingressController.enabled -}}
   {{- $_ := set $autoEnv "KONG_KIC" "on" -}}
@@ -717,6 +727,13 @@ the template that it itself is using form the above sections.
 {{- $_ := set $autoEnv "KONG_CLUSTER_LISTEN" (include "kong.listen" .Values.cluster) -}}
 
 {{- if .Values.enterprise.enabled }}
+  {{- $_ := set $autoEnv "KONG_PORTAL_API_ACCESS_LOG" "/dev/stdout" -}}
+  {{- $_ := set $autoEnv "KONG_PORTAL_GUI_ACCESS_LOG" "/dev/stdout" -}}
+  {{- $_ := set $autoEnv "KONG_ADMIN_GUI_ACCESS_LOG" "/dev/stdout" -}}
+  {{- $_ := set $autoEnv "KONG_PORTAL_API_ERROR_LOG" "/dev/stderr" -}}
+  {{- $_ := set $autoEnv "KONG_PORTAL_GUI_ERROR_LOG" "/dev/stderr" -}}
+  {{- $_ := set $autoEnv "KONG_ADMIN_GUI_ERROR_LOG" "/dev/stderr" -}}
+
   {{- $_ := set $autoEnv "KONG_ADMIN_GUI_LISTEN" (include "kong.listen" .Values.manager) -}}
   {{- if .Values.manager.ingress.enabled }}
     {{- $_ := set $autoEnv "KONG_ADMIN_GUI_URL" (include "kong.ingress.serviceUrl" .Values.manager.ingress) -}}
