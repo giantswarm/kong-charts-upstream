@@ -1,8 +1,24 @@
 # Changelog
 
-## Unreleased
+## 2.13.0
 
-Nothing yet.
+### Improvements
+
+* Added cert-manager issuer support for proxy default and cluster mtls certificates
+  ([592](https://github.com/Kong/charts/pull/592))
+* Updated CRDs with the new ordering field for KongPlugins, the new
+  IngressClassParameters resource, and assorted field description updates.
+  These [require a manual update](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#updates-to-crds).
+* Updated default tags to Kong 3.0 and KIC 2.6.
+
+## 2.12.0
+
+### Improvements
+
+* Added ClusterRole for cluster-scoped resources when using watchNamespaces.
+  [#611](https://github.com/Kong/charts/issues/611)
+* Added `extraObjects` to create additional k8s resources as part of the helm release.
+  [#652](https://github.com/Kong/charts/issues/652)
 
 ## 2.11.0
 

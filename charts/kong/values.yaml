@@ -81,6 +81,11 @@ deployment:
 # is set below. In general, you should not set values here if they are set elsewhere.
 env:
   database: "off"
+  # the chart uses the traditional router (for Kong 3.x+) because the ingress
+  # controller generates traditional routes. if you do not use the controller,
+  # you may set this to "traditional_compatible" or "expression" to use the new
+  # DSL-based router
+  router_flavor: "traditional"
   nginx_worker_processes: "2"
   proxy_access_log: /dev/stdout
   admin_access_log: /dev/stdout
@@ -113,10 +118,10 @@ extraLabels: {}
 # Specify Kong's Docker image and repository details here
 image:
   repository: kong
-  tag: "2.8"
+  tag: "3.0"
   # Kong Enterprise
   # repository: kong/kong-gateway
-  # tag: "2.8"
+  # tag: "3.0"
 
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
@@ -198,6 +203,9 @@ status:
     enabled: false
     containerPort: 8543
     parameters: []
+
+# Name the kong hybrid cluster CA certificate secret
+clusterCaSecretName: ""
 
 # Specify Kong cluster service and listener configuration
 #
@@ -457,7 +465,7 @@ ingressController:
   enabled: true
   image:
     repository: kong/kubernetes-ingress-controller
-    tag: "2.5"
+    tag: "2.6"
     # Optionally set a semantic version for version-gated features. This can normally
     # be left unset. You only need to set this if your tag is not a semver string,
     # such as when you are using a "next" tag. Set this to the effective semantic
@@ -470,8 +478,8 @@ ingressController:
   # when no namespaces are set, the controller watches all namespaces and uses a
   # ClusterRole to grant access to Kubernetes resources. When you list specific
   # namespaces, the controller will watch those namespaces only and will create
-  # namespaced-scoped Roles for each of them. Note that watching specific namespaces
-  # disables KongClusterPlugin usage, as KongClusterPlugins only exist as cluster resources.
+  # namespaced-scoped Roles for each of them. The controller will still use a
+  # ClusterRole for cluster-scoped resources.
   # Requires controller 2.0.0 or newer.
   watchNamespaces: []
 
@@ -588,6 +596,71 @@ postgresql:
   service:
     ports:
       postgresql: "5432"
+
+# -----------------------------------------------------------------------------
+# Configure cert-manager integration
+# -----------------------------------------------------------------------------
+
+certificates:
+  enabled: false
+
+  # Set either `issuer` or `clusterIssuer` to the name of the desired cert manager issuer
+  # If left blank a built in self-signed issuer will be created and utilized
+  issuer: ""
+  clusterIssuer: ""
+
+  # Set proxy.enabled to true to issue default kong-proxy certificate with cert-manager
+  proxy:
+    enabled: true
+    # Set `issuer` or `clusterIssuer` to name of alternate cert-manager clusterIssuer to override default
+    # self-signed issuer.
+    issuer: ""
+    clusterIssuer: ""
+    # Use commonName and dnsNames to set the common name and dns alt names which this
+    # certificate is valid for. Wildcard records are supported by the included self-signed issuer.
+    commonName: "app.example"
+    # Remove the "[]" and uncomment/change the examples to add SANs
+    dnsNames: []
+    # - "app.example"
+    # - "*.apps.example"
+    # - "*.kong.example"
+
+  # Set admin.enabled true to issue kong admin api and manager certificate with cert-manager
+  admin:
+    enabled: true
+    # Set `issuer` or `clusterIssuer` to name of alternate cert-manager clusterIssuer to override default
+    # self-signed issuer.
+    issuer: ""
+    clusterIssuer: ""
+    # Use commonName and dnsNames to set the common name and dns alt names which this
+    # certificate is valid for. Wildcard records are supported by the included self-signed issuer.
+    commonName: "kong.example"
+    # Remove the "[]" and uncomment/change the examples to add SANs
+    dnsNames: []
+    # - "manager.kong.example"
+
+  # Set portal.enabled to true to issue a developer portal certificate with cert-manager
+  portal:
+    enabled: true
+    # Set `issuer` or `clusterIssuer` to name of alternate cert-manager clusterIssuer to override default
+    # self-signed issuer.
+    issuer: ""
+    clusterIssuer: ""
+    # Use commonName and dnsNames to set the common name and dns alt names which this
+    # certificate is valid for. Wildcard records are supported by the included self-signed issuer.
+    commonName: "developer.example"
+    # Remove the "{}" and uncomment/change the examples to add SANs
+    dnsNames: []
+    # - "manager.kong.example"
+
+  # Set cluster.enabled true to issue kong hybrid mtls certificate with cert-manager
+  cluster:
+    enabled: true
+    # Issuers used by the control and data plane releases must match for this certificate.
+    issuer: ""
+    clusterIssuer: ""
+    # commonName: "kong_cluster"
+    # dnsNames: []
 
 # -----------------------------------------------------------------------------
 # Miscellaneous parameters
@@ -1019,3 +1092,13 @@ extraSecrets: []
 # - name: my-secret
 #   mountPath: /mount/to/my/location
 #   subPath: my-subpath # Optional, if you wish to mount a single key and not the entire ConfigMap
+
+extraObjects: []
+# extraObjects:
+# - apiVersion: configuration.konghq.com/v1
+#   kind: KongClusterPlugin
+#   metadata:
+#     name: prometheus
+#   config:
+#     per_consumer: false
+#   plugin: prometheus
