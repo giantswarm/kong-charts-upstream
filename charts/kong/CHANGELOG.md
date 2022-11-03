@@ -1,11 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+* UDP proxy (udpProxy) assumes the UDP protocol by default for stream entries (udpProxy.stream). 
+  This can be still overridden to TCP by specifying the protocol explicitly, but it is not recommended to do so.
+  [#682](https://github.com/Kong/charts/pull/682)
+* Supported `autoscaling/v2` API
+  ([#679](https://github.com/Kong/charts/pull/679))
+
+### Fixed
+
+* Removed `PodSecurityPolicy` if the API is not supported in k8s cluster
+  to be compatible to k8s 1.25+.
+  [#680](https://github.com/Kong/charts/pull/680)
+
+
+## 2.13.1
+
+### Improvements
+
+* Updated default controller version to [KIC 2.7](https://github.com/Kong/kubernetes-ingress-controller/blob/main/CHANGELOG.md#270).
+
 ## 2.13.0
 
 ### Improvements
 
 * Added cert-manager issuer support for proxy default and cluster mtls certificates
-  ([592](https://github.com/Kong/charts/pull/592))
+  ([#592](https://github.com/Kong/charts/pull/592))
 * Updated CRDs with the new ordering field for KongPlugins, the new
   IngressClassParameters resource, and assorted field description updates.
   These [require a manual update](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#updates-to-crds).
