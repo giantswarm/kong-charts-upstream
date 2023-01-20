@@ -166,7 +166,6 @@ spec:
   - name: kong-{{ .serviceName }}
     port: {{ .http.servicePort }}
     targetPort: {{ .http.containerPort }}
-    appProtocol: http
   {{- if (and (or (eq .type "LoadBalancer") (eq .type "NodePort")) (not (empty .http.nodePort))) }}
     nodePort: {{ .http.nodePort }}
   {{- end }}
@@ -177,7 +176,6 @@ spec:
   - name: kong-{{ .serviceName }}-tls
     port: {{ .tls.servicePort }}
     targetPort: {{ .tls.overrideServiceTargetPort | default .tls.containerPort }}
-    appProtocol: https
   {{- if (and (or (eq .type "LoadBalancer") (eq .type "NodePort")) (not (empty .tls.nodePort))) }}
     nodePort: {{ .tls.nodePort }}
   {{- end }}
@@ -1190,7 +1188,7 @@ resource roles into their separate templates.
   - get
   - patch
   - update
-{{- if (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") }}
+{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") }}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
@@ -1340,7 +1338,7 @@ Kubernetes Cluster-scoped resources it uses to build Kong configuration.
   - get
   - patch
   - update
-{{- if (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") }}
+{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") }}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
