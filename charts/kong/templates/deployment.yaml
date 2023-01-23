@@ -276,11 +276,11 @@ spec:
         {{- end }} {{/* End of Kong container spec */}}
     {{- if .Values.affinity }}
       affinity:
-{{ toYaml .Values.affinity | indent 8 }}
+{{ tpl .Values.affinity . | indent 8 }}
     {{- end }}
     {{- if .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
-{{ toYaml .Values.topologySpreadConstraints | indent 8 }}
+{{ tpl .Values.topologySpreadConstraints . | indent 6 }}
     {{- end }}
       securityContext:
       {{- include "kong.podsecuritycontext" . | nindent 8 }}

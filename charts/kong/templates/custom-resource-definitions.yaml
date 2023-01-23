@@ -32,3 +32,6 @@
 ---
 {{- end }}
 {{- end }}
+
+{{/* This requires giantswarm/kubectl-apply-job to be present as a Chart dependency */}}
+{{ include "kubectlApplyJob.job" . }}
