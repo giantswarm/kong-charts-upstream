@@ -1,0 +1,35 @@
+{{/*
+Before trying to contribute this file to upstream, please read below.
+This file contains Giant Swarm specific Services for monitoring not present
+in the original upstream chart.
+*/}}
+
+{{- if and .Values.deployment.kong.enabled }}
+{{- if and .Values.status.enabled (or .Values.status.http.enabled .Values.status.tls.enabled) -}}
+{{- $tls := dict "enabled" false "servicePort" .Values.status.tls.containerPort "containerPort" "status" -}}
+{{- $http := dict "enabled" true "servicePort" .Values.status.http.containerPort "containerPort" "status" -}}
+{{- $annotationPort := .Values.status.http.enabled | ternary .Values.status.http.containerPort .Values.status.tls.containerPort  }}
+{{- $annotations := dict "giantswarm.io/monitoring" "true" "giantswarm.io/monitoring-app-label" "kong-app" "giantswarm.io/monitoring-port" $annotationPort -}}
+{{- $serviceConfig := dict "annotations" $annotations "http" $http "tls" $tls "type" "ClusterIP" -}}
+{{- $serviceConfig := merge $serviceConfig .Values.status -}}
+{{- $_ := set $serviceConfig "fullName" (include "kong.fullname" .) -}}
+{{- $_ := set $serviceConfig "namespace" (include "kong.namespace" .) -}}
+{{- $_ := set $serviceConfig "metaLabels" (include "kong.metaLabels" .) -}}
+{{- $_ := set $serviceConfig "selectorLabels" (include "kong.selectorLabels" .) -}}
+{{- $_ := set $serviceConfig "serviceName" "metrics" -}}
+{{- include "kong.service" $serviceConfig }}
+{{- end -}}
+{{- end }}
+---
+{{ if and .Values.ingressController.enabled }}
+{{- $tls := dict "enabled" false -}}
+{{- $http := dict "enabled" true "servicePort" 10255 "containerPort" "cmetrics" -}}
+{{- $annotations := dict "giantswarm.io/monitoring" "true" "giantswarm.io/monitoring-app-label" "kong-app" "giantswarm.io/monitoring-port" "10255" -}}
+{{- $serviceConfig := dict "annotations" $annotations "http" $http "tls" $tls "type" "ClusterIP" -}}
+{{- $_ := set $serviceConfig "fullName" (include "kong.fullname" .) -}}
+{{- $_ := set $serviceConfig "namespace" (include "kong.namespace" .) -}}
+{{- $_ := set $serviceConfig "metaLabels" (include "kong.metaLabels" .) -}}
+{{- $_ := set $serviceConfig "selectorLabels" (include "kong.selectorLabels" .) -}}
+{{- $_ := set $serviceConfig "serviceName" "ingress-controller-metrics" -}}
+{{- include "kong.service" $serviceConfig }}
+{{- end -}}
