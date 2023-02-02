@@ -2,10 +2,19 @@
 
 ## Unreleased
 
+Nothing yet.
+
+## 2.16.0
+
 ### Improvements
 
-* Enable users to specify their own labels and annotations to generated PodSecurityPolicy
+* Let users specify their own labels and annotations for generated PodSecurityPolicy.
   [#721](https://github.com/Kong/charts/pull/721)
+* Enable the admission webhook by default. This can reject configuration, but
+  is not expected to be a meaningfully breaking change. Existing configuration
+  is not affected, and any new changes that the webhook would reject would also
+  be rejected by Kong.
+  [#727](https://github.com/Kong/charts/pull/727)
 * Replaced static secret with projected volume in deployment.
   [#722](https://github.com/Kong/charts/pull/722)
 * Reject invalid log config values.
@@ -13,6 +22,9 @@
 * Update custom resource definitions to latest v2.8.1 from
   kong/kubernetes-ingress-controller
   [#730](https://github.com/Kong/charts/pull/730)
+* Respect setting `.Values.deployment.serviceAccount.automountServiceAccountToken` in
+  migrations Jobs. This was already the case for the Deployment.
+  [#729](https://github.com/Kong/charts/pull/729)
 
 ## 2.15.3
 
