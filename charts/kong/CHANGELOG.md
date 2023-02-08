@@ -1,8 +1,18 @@
 # Changelog
 
-## Unreleased
+## 2.16.2
 
-Nothing yet.
+### Fixed 
+
+* The admission webhook is disabled when the ingress controller is disabled, as
+  the admission webhook requires a service provided by the ingress controller.
+
+## 2.16.1
+
+### Fixed 
+
+* serviceAccount projected volume is properly provisioned for GKE clusters >= 1.20.
+  [#735](https://github.com/Kong/charts/pull/735)
 
 ## 2.16.0
 
