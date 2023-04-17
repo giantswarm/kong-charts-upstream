@@ -121,10 +121,10 @@ extraLabels: {}
 # Specify Kong's Docker image and repository details here
 image:
   repository: kong
-  tag: "3.1"
+  tag: "3.2"
   # Kong Enterprise
   # repository: kong/kong-gateway
-  # tag: "3.1"
+  # tag: "3.2"
 
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
@@ -141,6 +141,7 @@ admin:
   # Enterprise users that wish to use Kong Manager with the controller should enable this
   enabled: false
   type: NodePort
+  loadBalancerClass:
   # To specify annotations or labels for the admin service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -171,6 +172,14 @@ admin:
     # Additional listen parameters, e.g. "reuseport", "backlog=16384"
     parameters:
     - http2
+
+    # Specify the CA certificate to use for TLS verification of the Admin API client by:
+    # - secretName - the secret must contain a key named "tls.crt" with the PEM-encoded certificate.
+    # - caBundle (PEM-encoded certificate string).
+    # If both are set, caBundle takes precedence.
+    client:
+      caBundle: ""
+      secretName: ""
 
   # Kong admin ingress settings. Useful if you want to expose the Admin
   # API of Kong outside the k8s cluster.
@@ -235,6 +244,7 @@ cluster:
     parameters: []
 
   type: ClusterIP
+  loadBalancerClass:
 
   # Kong cluster ingress settings. Useful if you want to split CP and DP
   # in different clusters.
@@ -258,6 +268,7 @@ proxy:
   # Enable creating a Kubernetes service for the proxy
   enabled: true
   type: LoadBalancer
+  loadBalancerClass:
   # Override proxy Service name
   nameOverride: ""
   # To specify annotations or labels for the proxy service, add them to the respective
@@ -297,7 +308,7 @@ proxy:
 
   # Define stream (TCP) listen
   # To enable, remove "[]", uncomment the section below, and select your desired
-  # ports and parameters. Listens are dynamically named after their servicePort,
+  # ports and parameters. Listens are dynamically named after their containerPort,
   # e.g. "stream-9000" for the below.
   # Note: although you can select the protocol here, you cannot set UDP if you
   # use a LoadBalancer Service due to limitations in current Kubernetes versions.
@@ -346,6 +357,7 @@ udpProxy:
   # Enable creating a Kubernetes service for UDP proxying
   enabled: false
   type: LoadBalancer
+  loadBalancerClass:
   # To specify annotations or labels for the proxy service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -472,7 +484,7 @@ ingressController:
   enabled: true
   image:
     repository: kong/kubernetes-ingress-controller
-    tag: "2.8"
+    tag: "2.9"
     # Optionally set a semantic version for version-gated features. This can normally
     # be left unset. You only need to set this if your tag is not a semver string,
     # such as when you are using a "next" tag. Set this to the effective semantic
@@ -481,7 +493,7 @@ ingressController:
     effectiveSemver:
   args: []
 
-  serviceDiscovery:
+  gatewayDiscovery:
     enabled: false
     adminApiService:
       namespace: ""
@@ -527,6 +539,9 @@ ingressController:
     # This is a PEM encoded CA bundle which will be used to validate the webhook certificate. If unspecified, system trust roots on the apiserver are used.
     # caBundle:
     #   | Add the CA bundle content here.
+    service:
+      # Specify custom labels for the validation webhook service.
+      labels: {}
 
   ingressClass: kong
   # annotations for IngressClass resource (Kubernetes 1.18+)
@@ -579,12 +594,35 @@ ingressController:
     # Specifies a Konnect Runtime Group's ID that the controller will push its data-plane config to.
     runtimeGroupID: ""
 
-    # Specifies Konnect's account region. One of `us`, `eu`.
-    region: "us"
+    # Specifies a Konnect API hostname that the controller will use to push its data-plane config to.
+    # By default, this is set to US region's production API hostname.
+    # If you are using a different region, you can set this to the appropriate hostname (e.g. "eu.kic.api.konghq.com").
+    apiHostname: "us.kic.api.konghq.com"
 
     # Specifies a secret that contains a client TLS certificate that the controller
     # will use to authenticate against Konnect APIs.
     tlsClientCertSecretName: "konnect-client-tls"
+
+  adminApi:
+    tls:
+      client:
+        # Enable TLS client authentication for the Admin API.
+        enabled: false
+
+        # If set to false, Helm will generate certificates for you.
+        # If set to true, you are expected to provide your own secret (see secretName, caSecretName).
+        certProvided: false
+
+        # Client TLS certificate/key pair secret name that Ingress Controller will use to authenticate with Kong Admin API.
+        # If certProvided is set to false, it is optional (can be specified though if you want to force Helm to use
+        # a specific secret name).
+        secretName: ""
+
+        # CA TLS certificate/key pair secret name that the client TLS certificate is signed by.
+        # If certProvided is set to false, it is optional (can be specified though if you want to force Helm to use
+        # a specific secret name).
+        caSecretName: ""
+
 
 # -----------------------------------------------------------------------------
 # Postgres sub-chart parameters
@@ -856,7 +894,8 @@ priorityClassName: ""
 securityContext: {}
 
 # securityContext for containers.
-containerSecurityContext: {}
+containerSecurityContext:
+  readOnlyRootFilesystem: true
 
 ## Optional DNS configuration for Kong pods
 # dnsPolicy: ClusterFirst
@@ -943,6 +982,7 @@ manager:
   # Enable creating a Kubernetes service for Kong Manager
   enabled: true
   type: NodePort
+  loadBalancerClass:
   # To specify annotations or labels for the Manager service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -989,6 +1029,7 @@ portal:
   # Enable creating a Kubernetes service for the Developer Portal
   enabled: true
   type: NodePort
+  loadBalancerClass:
   # To specify annotations or labels for the Portal service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -1035,6 +1076,7 @@ portalapi:
   # Enable creating a Kubernetes service for the Developer Portal API
   enabled: true
   type: NodePort
+  loadBalancerClass:
   # To specify annotations or labels for the Portal API service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -1092,6 +1134,7 @@ clustertelemetry:
     parameters: []
 
   type: ClusterIP
+  loadBalancerClass:
 
   # Kong clustertelemetry ingress settings. Useful if you want to split
   # CP and DP in different clusters.

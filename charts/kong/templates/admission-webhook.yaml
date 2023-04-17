@@ -34,6 +34,12 @@ metadata:
   namespace: {{ template "kong.namespace" . }}
   labels:
     {{- include "kong.metaLabels" . | nindent 4 }}
+  {{- if .Values.ingressController.admissionWebhook.annotations }}
+  annotations:
+  {{- range $key, $value := .Values.ingressController.admissionWebhook.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- end }}
 webhooks:
 - name: validations.kong.konghq.com
   objectSelector:
@@ -89,6 +95,9 @@ metadata:
   namespace: {{ template "kong.namespace" . }}
   labels:
     {{- include "kong.metaLabels" . | nindent 4 }}
+    {{- if .Values.ingressController.admissionWebhook.service.labels }}
+      {{- toYaml .Values.ingressController.admissionWebhook.service.labels | nindent 4 }}
+    {{- end }}
 spec:
   ports:
   - name: webhook
