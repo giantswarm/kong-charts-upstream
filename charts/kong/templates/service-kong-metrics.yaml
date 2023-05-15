@@ -4,7 +4,7 @@ This file contains Giant Swarm specific Services for monitoring not present
 in the original upstream chart.
 */}}
 
-{{- if and .Values.deployment.kong.enabled }}
+{{- if and .Values.deployment.kong.enabled (not .Values.serviceMonitor.enabled) }}
 {{- if and .Values.status.enabled (or .Values.status.http.enabled .Values.status.tls.enabled) -}}
 {{- $tls := dict "enabled" false "servicePort" .Values.status.tls.containerPort "containerPort" "status" -}}
 {{- $http := dict "enabled" true "servicePort" .Values.status.http.containerPort "containerPort" "status" -}}
@@ -21,7 +21,7 @@ in the original upstream chart.
 {{- end -}}
 {{- end }}
 ---
-{{ if and .Values.ingressController.enabled }}
+{{ if and .Values.ingressController.enabled (not .Values.serviceMonitor.enabled) }}
 {{- $tls := dict "enabled" false -}}
 {{- $http := dict "enabled" true "servicePort" 10255 "containerPort" "cmetrics" -}}
 {{- $annotations := dict "giantswarm.io/monitoring" "true" "giantswarm.io/monitoring-app-label" "kong-app" "giantswarm.io/monitoring-port" "10255" -}}
