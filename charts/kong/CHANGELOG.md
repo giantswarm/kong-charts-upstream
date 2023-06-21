@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+* Running `tpl` against user-supplied labels and annotations used in Deployment
+  #### example:
+  ```yaml
+  podLabels:
+    version: "{{ .Values.image.tag }}"  # Will render dynamically when overridden downstream
+  ```
+  [#814](https://github.com/Kong/charts/pull/814)
+
+## 2.23.0
+
+### Improvements
+
+* Add custom label configuration option for Kong proxy `Ingress`.
+  [#812](https://github.com/Kong/charts/pull/812)
+* Bump default `kong/kubernetes-ingress-controller` image tag to 2.10.
+  Bump default `kong` image tag to 3.3.
+  [#815](https://github.com/Kong/charts/pull/815)
+
+## 2.22.0
+
+### Improvements
+
+* Removed redundant RBAC permissions for non-existing subresources `secrets/status`
+  and `endpoints/status`.
+  [#798](https://github.com/Kong/charts/pull/798)
+* For Kong Ingress Controller in version >= 2.10, RBAC permissions for `Endpoints`
+  are not configured anymore (because it uses `EndpointSlices`).
+  [#798](https://github.com/Kong/charts/pull/798)
+* Added support for setting `certificates.cluster.commonName`. This allows a custom
+  certificate `CommonName` to be provided when deploying Kong Gateway in hybrid
+  mode using Cert Manager [#804](https://github.com/Kong/charts/pull/804)
+
 ## 2.21.0
 
 ### Improvements
