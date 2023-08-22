@@ -1,5 +1,58 @@
 # Changelog
 
+## Unreleased
+
+Nothing yet.
+
+## 2.26.4
+
+### Fixed 
+
+* updated `admin_api_uri` to `admin_gui_api_url` as per [kong documentation](https://docs.konghq.com/gateway/3.4.x/reference/configuration/#admin_api_uri). 
+
+## 2.26.3
+
+### Fixed 
+
+* Enabled Service and Ingress in Kong Manager for non enterprise users.
+
+## 2.26.2
+
+### Fixed 
+
+* Add missing CRD KongConsumerGroup and extend status subresource for CRDs
+
+## 2.26.1
+
+### Fixed
+
+* Fix parsing enterprise tags (like e.g. `3.4.0.0`)
+  [#857](https://github.com/Kong/charts/pull/857)
+
+## 2.26.0
+
+### Breaking changes
+
+2.26 changes the default proxy readiness endpoint for newer Kong versions. This
+causes an issue in a narrow edge case. If all of the following are true:
+
+* You use Kong 3.3 or newer.
+* You use controller 2.10 or older.
+* You run the controller and proxy in separate Deployments.
+
+you are affected and should review [the 2.26 upgrade instructions](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#2260).
+
+### Improvements
+
+* Use the Kong 3.3 `/status/ready` endpoint for readiness probes by default if
+  available. If not available, use the old `/status` default.
+  [#844](https://github.com/Kong/charts/pull/844)
+* Add ArgoCD `Sync` and `BeforeHookCreation` [hook policies](https://argo-cd.readthedocs.io/en/stable/user-guide/resource_hooks/)
+  to the the init and pre-upgrade migrations Jobs.
+* Add controller's RBAC rules for `KongConsumerGroups` CRD.
+  [#850](https://github.com/Kong/charts/pull/850)
+* Updated controller version to 2.11.
+
 ## 2.25.0
 
 - Generate the `adminApiService.name` value from `.Release.Name` rather than

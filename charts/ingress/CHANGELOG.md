@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.0
+
+### Improvements
+
+- Bumped dependency `kong/kong` to `2.26.2`.
+  [#862](https://github.com/Kong/charts/pull/862)
+
+## 0.5.0
+
+### Breaking changes
+
+The new `kong/kong` chart requires manual changes to values.yaml if using this
+chart with controller versions <=2.10 and Kong versions >=3.3. See the 
+[the kong/kong 2.26 upgrade instructions](https://github.com/Kong/charts/blob/main/charts/kong/UPGRADE.md#2260)
+for details.
+
+### Improvements
+
+- Bumped dependencies on `kong/kong` chart to `>=2.26.0`.
+  [#855](https://github.com/Kong/charts/pull/855)
+
 ## 0.4.0
 
 ### Improvements

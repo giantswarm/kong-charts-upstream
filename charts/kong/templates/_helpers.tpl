@@ -786,10 +786,22 @@ The name of the service used for the ingress controller's validation webhook
 
 {{/* effectiveVersion takes an image dict from values.yaml. if .effectiveSemver is set, it returns that, else it returns .tag */}}
 {{- define "kong.effectiveVersion" -}}
+{{- /* Because Kong Gateway enterprise uses versions with 4 segments and not 3 */ -}}
+{{- /* as semver does, we need to account for that here by extracting */ -}}
+{{- /* first 3 segments for comparison */ -}}
 {{- if .effectiveSemver -}}
-{{- .effectiveSemver -}}
+  {{- if regexMatch "^[0-9]+.[0-9]+.[0-9]+" .effectiveSemver -}}
+  {{- regexFind "^[0-9]+.[0-9]+.[0-9]+" .effectiveSemver -}}
+  {{- else -}}
+  {{- .effectiveSemver -}}
+  {{- end -}}
 {{- else -}}
-{{- (trimSuffix "-redhat" .tag) -}}
+  {{- $tag := (trimSuffix "-redhat" .tag) -}}
+  {{- if regexMatch "^[0-9]+.[0-9]+.[0-9]+" .tag -}}
+  {{- regexFind "^[0-9]+.[0-9]+.[0-9]+" .tag -}}
+  {{- else -}}
+  {{- .tag -}}
+  {{- end -}}
 {{- end -}}
 {{- end -}}
 
@@ -952,6 +964,7 @@ the template that it itself is using form the above sections.
 {{- end -}}
 
 {{- if .Values.admin.ingress.enabled }}
+  {{- $_ := set $autoEnv "KONG_ADMIN_GUI_API_URL" (include "kong.ingress.serviceUrl" .Values.admin.ingress) -}}
   {{- $_ := set $autoEnv "KONG_ADMIN_API_URI" (include "kong.ingress.serviceUrl" .Values.admin.ingress) -}}
 {{- end -}}
 
@@ -1197,6 +1210,24 @@ role sets used in the charts. Updating these requires separating out cluster
 resource roles into their separate templates.
 */}}
 {{- define "kong.kubernetesRBACRules" -}}
+{{- if (semverCompare ">= 2.11.0" (include "kong.effectiveVersion" .Values.ingressController.image)) }}
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongconsumergroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - kongconsumergroups/status
+  verbs:
+  - get
+  - patch
+  - update
+{{- end }}
 {{- if (semverCompare "< 2.10.0" (include "kong.effectiveVersion" .Values.ingressController.image)) }}
 - apiGroups:
   - ""
@@ -1599,4 +1630,14 @@ networking.k8s.io/v1beta1
 {{- else -}}
 extensions/v1beta1
 {{- end -}}
+{{- end -}}
+
+{{- define "kong.proxy.compatibleReadiness" -}}
+{{- $proxyReadiness := .Values.readinessProbe -}}
+{{- if (or (semverCompare "< 3.3.0" (include "kong.effectiveVersion" .Values.image)) (and .Values.ingressController.enabled (semverCompare "< 2.11.0" (include "kong.effectiveVersion" .Values.ingressController.image)))) -}}
+    {{- if (eq $proxyReadiness.httpGet.path "/status/ready") -}}
+        {{- $_ := set $proxyReadiness.httpGet "path" "/status" -}}
+    {{- end -}}
+{{- end -}}
+{{- (toYaml $proxyReadiness) -}}
 {{- end -}}
