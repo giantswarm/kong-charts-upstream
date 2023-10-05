@@ -330,10 +330,11 @@ Create KONG_STREAM_LISTEN string
 */}}
 {{- define "kong.streamListen" -}}
   {{- $unifiedListen := list -}}
+  {{- $address := (default "0.0.0.0" .address) -}}
   {{- range .stream -}}
     {{- $listenConfig := dict -}}
     {{- $listenConfig := merge $listenConfig . -}}
-    {{- $_ := set $listenConfig "address" "0.0.0.0" -}}
+    {{- $_ := set $listenConfig "address" $address -}}
     {{/* You set NGINX stream listens to UDP using a parameter due to historical reasons.
          Our configuration is dual-purpose, for both the Service and listen string, so we
          forcibly inject this parameter if that's the Service protocol. The default handles
@@ -458,7 +459,8 @@ The name of the service used for the ingress controller's validation webhook
   {{- $_ := set $autoEnv "CONTROLLER_ELECTION_ID" (printf "kong-ingress-controller-leader-%s" .Values.ingressController.ingressClass) -}}
 
   {{- if .Values.ingressController.admissionWebhook.enabled }}
-    {{- $_ := set $autoEnv "CONTROLLER_ADMISSION_WEBHOOK_LISTEN" (printf "0.0.0.0:%d" (int64 .Values.ingressController.admissionWebhook.port)) -}}
+    {{- $address := (default "0.0.0.0" .Values.ingressController.admissionWebhook.address) -}}
+    {{- $_ := set $autoEnv "CONTROLLER_ADMISSION_WEBHOOK_LISTEN" (printf "%s:%d" $address (int64 .Values.ingressController.admissionWebhook.port)) -}}
   {{- end }}
   {{- if (not (eq (len .Values.ingressController.watchNamespaces) 0)) }}
     {{- $_ := set $autoEnv "CONTROLLER_WATCH_NAMESPACE" (.Values.ingressController.watchNamespaces | join ",") -}}
@@ -552,6 +554,41 @@ The name of the service used for the ingress controller's validation webhook
 - name: {{ template "kong.fullname" . }}-tmp
   emptyDir:
     sizeLimit: {{ .Values.deployment.tmpDir.sizeLimit }}
+{{- if (and (not .Values.deployment.serviceAccount.automountServiceAccountToken) (or .Values.deployment.serviceAccount.create .Values.deployment.serviceAccount.name)) }}
+- name: {{ template "kong.serviceAccountTokenName" . }}
+  {{- /* Due to GKE versions (e.g. v1.23.15-gke.1900) we need to handle pre-release part of the version as well.
+  See the related documentation of semver module that Helm depends on for semverCompare:
+  https://github.com/Masterminds/semver#working-with-prerelease-versions
+  Related Helm issue: https://github.com/helm/helm/issues/3810 */}}
+  {{- if semverCompare ">=1.20.0-0" .Capabilities.KubeVersion.Version }}
+  projected:
+    sources:
+    - serviceAccountToken:
+        expirationSeconds: 3607
+        path: token
+    - configMap:
+        items:
+        - key: ca.crt
+          path: ca.crt
+        name: kube-root-ca.crt
+    - downwardAPI:
+        items:
+        - fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+          path: namespace
+  {{- else }}
+  secret:
+    secretName: {{ template "kong.serviceAccountTokenName" . }}
+    items:
+    - key: token
+      path: token
+    - key: ca.crt
+      path: ca.crt
+    - key: namespace
+      path: namespace
+  {{- end }}
+{{- end }}
 {{- if and ( .Capabilities.APIVersions.Has "cert-manager.io/v1" ) .Values.certificates.enabled -}}
 {{- if .Values.certificates.cluster.enabled }}
 - name: {{ include "kong.fullname" . }}-cluster-cert
@@ -920,7 +957,7 @@ the template that it itself is using form the above sections.
   {{- end -}}
   {{- $listenConfig := dict -}}
   {{- $listenConfig := merge $listenConfig . -}}
-  {{- $_ := set $listenConfig "address" $address -}}
+  {{- $_ := set $listenConfig "address" (default $address .address) -}}
   {{- $_ := set $autoEnv "KONG_ADMIN_LISTEN" (include "kong.listen" $listenConfig) -}}
 
   {{- if or .tls.client.secretName .tls.client.caBundle -}}
