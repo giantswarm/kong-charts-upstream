@@ -1,10 +1,4 @@
-{{- if .Values.podDisruptionBudget.enabled }}
-{{- if and (not .Values.autoscaling.enabled) (le (int .Values.replicaCount) 1) }}
-{{- fail "Enabling PodDisruptionBudget with replicaCount: 1 and no autoscaling prevents pod restarts during upgrades" }}
-{{- end }}
-{{- if and .Values.autoscaling.enabled (le (int .Values.autoscaling.minReplicas) 1) }}
-{{- fail "Enabling PodDisruptionBudget with autoscaling.minReplicas: 1 prevents pod restarts during upgrades" }}
-{{- end }}
+{{- if and .Values.podDisruptionBudget.enabled (or (and (not .Values.autoscaling.enabled) (gt (int .Values.replicaCount) 1)) (and .Values.autoscaling.enabled (gt (int .Values.autoscaling.minReplicas) 1)))}}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
