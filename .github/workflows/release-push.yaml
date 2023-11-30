@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release/kong-2.x
 
 jobs:
   lint-test:
@@ -29,7 +30,7 @@ jobs:
           python-version: "3.11"
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.4.0
+        uses: helm/chart-testing-action@v2.6.1
 
       - name: Add dependency chart repos
         run: |
@@ -82,7 +83,7 @@ jobs:
           helm repo add kong https://charts.konghq.com
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.5.0
+        uses: helm/chart-releaser-action@v1.6.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           CR_SKIP_EXISTING: true

@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - main
+      - release/kong-2.x
 
 jobs:
   lint:
@@ -59,7 +60,7 @@ jobs:
           python-version: "3.11"
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.4.0
+        uses: helm/chart-testing-action@v2.6.1
 
       - name: Run chart-testing (lint)
         run: ct lint --check-version-increment=false
@@ -77,11 +78,10 @@ jobs:
     env:
       # Specify this here because these tests rely on ktf to run kind for cluster creation.
       KIND_VERSION: v0.20.0
+      GATEWAY_API_VERSION: v0.8.1
     strategy:
       matrix:
         kubernetes-version:
-        - "1.21.14"
-        - "1.22.15"
         - "1.23.13"
         - "1.24.7"
         - "1.25.9"
@@ -123,6 +123,7 @@ jobs:
     env:
       # Specify this here because these tests rely on ktf to run kind for cluster creation.
       KIND_VERSION: v0.20.0
+      GATEWAY_API_VERSION: v0.8.1
     strategy:
       matrix:
         kic-version:
