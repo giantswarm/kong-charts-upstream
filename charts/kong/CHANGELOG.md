@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+Nothing yet.
+
+## 2.35.0
+
+### Added 
+
+* Added controller's RBAC rules for `KongVault` CRD (installed only when KIC
+  version >= 3.1.0).
+  [#992](https://github.com/Kong/charts/pull/992)
+
+### Fixed
+
+* Added a missing `envFrom` render in the main Kong proxy container.
+  [#994](https://github.com/Kong/charts/pull/994)
+
+## 2.34.0
+
+### Added
+
+* The `envFrom` and `ingressController.envFrom` values.yaml keys now populate
+  the container field of the same name. This loads environment variables from
+  ConfigMap or Secret resource keys in bulk:
+  https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables
+  [#987](https://github.com/Kong/charts/pull/987)
+* Kong listens now use both IPv4 and IPv6 addresses.
+  [#986](https://github.com/Kong/charts/pull/986)
+
 ## 2.33.3
 
 ### Fixed
