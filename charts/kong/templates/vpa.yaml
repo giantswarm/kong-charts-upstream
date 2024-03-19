@@ -1,0 +1,38 @@
+{{- if .Values.verticalPodAutoscaler.enabled }}
+{{- if or .Values.deployment.kong.enabled .Values.ingressController.enabled }}
+{{- if .Values.autoscaling.enabled }}
+{{- fail "Cannot enable HorizontalPodAutoscaler and VerticalPodAutoscaler at the same time" }}
+{{- end }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ template "kong.fullname" . }}
+  namespace: {{ template "kong.namespace" . }}
+  labels:
+    {{- include "kong.metaLabels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  resourcePolicy:
+    containerPolicies:
+    {{- if .Values.deployment.kong.enabled }}
+    - containerName: proxy
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed:
+        cpu: 50m
+    {{- end }}
+    {{- if .Values.ingressController.enabled }}
+    - containerName: ingress-controller
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed:
+        cpu: 50m
+    {{- end }}
+  targetRef:
+    apiVersion: apps/v1
+    kind: {{ ternary "DaemonSet" "Deployment" .Values.deployment.daemonset }}
+    name: {{ template "kong.fullname" . }}
+  updatePolicy:
+    updateMode: Auto
+{{- end }}
+{{- end }}
