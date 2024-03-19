@@ -136,7 +136,7 @@ image:
   # tag: "3.5"
 
   # Specify a semver version if your image tag is not one (e.g. "nightly")
-  effectiveSemver:
+  effectiveSemver: ""
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
   ## Secrets must be manually created in the namespace.
@@ -152,7 +152,7 @@ admin:
   # Enterprise users that wish to use Kong Manager with the controller should enable this
   enabled: false
   type: NodePort
-  loadBalancerClass:
+  loadBalancerClass: ""
   # To specify annotations or labels for the admin service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -197,11 +197,11 @@ admin:
   ingress:
     # Enable/disable exposure using ingress.
     enabled: false
-    ingressClassName:
+    ingressClassName: ""
     # TLS secret name.
     # tls: kong-admin.example.com-tls
     # Ingress hostname
-    hostname:
+    hostname: ""
     # Map of ingress annotations.
     annotations: {}
     # Ingress path.
@@ -255,18 +255,18 @@ cluster:
     parameters: []
 
   type: ClusterIP
-  loadBalancerClass:
+  loadBalancerClass: ""
 
   # Kong cluster ingress settings. Useful if you want to split CP and DP
   # in different clusters.
   ingress:
     # Enable/disable exposure using ingress.
     enabled: false
-    ingressClassName:
+    ingressClassName: ""
     # TLS secret name.
     # tls: kong-cluster.example.com-tls
     # Ingress hostname
-    hostname:
+    hostname: ""
     # Map of ingress annotations.
     annotations: {}
     # Ingress path.
@@ -279,7 +279,7 @@ proxy:
   # Enable creating a Kubernetes service for the proxy
   enabled: true
   type: LoadBalancer
-  loadBalancerClass:
+  loadBalancerClass: ""
   # Override proxy Service name
   nameOverride: ""
   # To specify annotations or labels for the proxy service, add them to the respective
@@ -348,13 +348,13 @@ proxy:
   ingress:
     # Enable/disable exposure using ingress.
     enabled: false
-    ingressClassName:
+    ingressClassName: ""
     # To specify annotations or labels for the ingress, add them to the respective
     # "annotations" or "labels" dictionaries below.
     annotations: {}
     labels: {}
     # Ingress hostname
-    hostname:
+    hostname: ""
     # Ingress path (when used with hostname above).
     path: /
     # Each path in an Ingress is required to have a corresponding path type (when used with hostname above). (ImplementationSpecific/Exact/Prefix)
@@ -402,7 +402,7 @@ udpProxy:
   # Enable creating a Kubernetes service for UDP proxying
   enabled: false
   type: LoadBalancer
-  loadBalancerClass:
+  loadBalancerClass: ""
   # To specify annotations or labels for the proxy service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -474,7 +474,7 @@ migrations:
   # where additional control is required around this job creation.
   jobAnnotations: {}
   # Optionally set a backoffLimit. If none is set, Jobs will use the cluster default
-  backoffLimit:
+  backoffLimit: 6
   resources: {}
   # Example reasonable setting for "resources":
   # resources:
@@ -535,7 +535,7 @@ ingressController:
     # such as when you are using a "next" tag. Set this to the effective semantic
     # version of your tag: for example if using a "next" image for an unreleased 3.1.0
     # version, set this to "3.1.0".
-    effectiveSemver:
+    effectiveSemver: ""
   args: []
 
   gatewayDiscovery:
@@ -910,7 +910,7 @@ autoscaling:
   maxReplicas: 5
   behavior: {}
   ## targetCPUUtilizationPercentage only used if the cluster doesn't support autoscaling/v2 or autoscaling/v2beta
-  targetCPUUtilizationPercentage:
+  targetCPUUtilizationPercentage: 80
   ## Otherwise for clusters that do support autoscaling/v2 or autoscaling/v2beta, use metrics
   metrics:
     - type: Resource
@@ -1059,7 +1059,7 @@ manager:
   # Enable creating a Kubernetes service for Kong Manager
   enabled: true
   type: NodePort
-  loadBalancerClass:
+  loadBalancerClass: ""
   # To specify annotations or labels for the Manager service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -1090,11 +1090,11 @@ manager:
   ingress:
     # Enable/disable exposure using ingress.
     enabled: false
-    ingressClassName:
+    ingressClassName: ""
     # TLS secret name.
     # tls: kong-manager.example.com-tls
     # Ingress hostname
-    hostname:
+    hostname: ""
     # Map of ingress annotations.
     annotations: {}
     # Ingress path.
@@ -1106,7 +1106,7 @@ portal:
   # Enable creating a Kubernetes service for the Developer Portal
   enabled: true
   type: NodePort
-  loadBalancerClass:
+  loadBalancerClass: ""
   # To specify annotations or labels for the Portal service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -1137,11 +1137,11 @@ portal:
   ingress:
     # Enable/disable exposure using ingress.
     enabled: false
-    ingressClassName:
+    ingressClassName: ""
     # TLS secret name.
     # tls: kong-portal.example.com-tls
     # Ingress hostname
-    hostname:
+    hostname: ""
     # Map of ingress annotations.
     annotations: {}
     # Ingress path.
@@ -1153,7 +1153,7 @@ portalapi:
   # Enable creating a Kubernetes service for the Developer Portal API
   enabled: true
   type: NodePort
-  loadBalancerClass:
+  loadBalancerClass: ""
   # To specify annotations or labels for the Portal API service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -1184,11 +1184,11 @@ portalapi:
   ingress:
     # Enable/disable exposure using ingress.
     enabled: false
-    ingressClassName:
+    ingressClassName: ""
     # TLS secret name.
     # tls: kong-portalapi.example.com-tls
     # Ingress hostname
-    hostname:
+    hostname: ""
     # Map of ingress annotations.
     annotations: {}
     # Ingress path.
@@ -1211,18 +1211,18 @@ clustertelemetry:
     parameters: []
 
   type: ClusterIP
-  loadBalancerClass:
+  loadBalancerClass: ""
 
   # Kong clustertelemetry ingress settings. Useful if you want to split
   # CP and DP in different clusters.
   ingress:
     # Enable/disable exposure using ingress.
     enabled: false
-    ingressClassName:
+    ingressClassName: ""
     # TLS secret name.
     # tls: kong-clustertelemetry.example.com-tls
     # Ingress hostname
-    hostname:
+    hostname: ""
     # Map of ingress annotations.
     annotations: {}
     # Ingress path.

@@ -6,12 +6,17 @@ _download_tool:
 		GOBIN=$(PROJECT_DIR)/bin go generate -tags=third_party ./$(TOOL).go )
 
 .PHONY: tools
-tools: kube-linter chartsnap
+tools: kube-linter chartsnap helm-schema
 
 KUBE_LINTER = $(PROJECT_DIR)/bin/kube-linter
 .PHONY: kube-linter
 kube-linter:
 	@$(MAKE) _download_tool TOOL=kube-linter
+
+HELM_SCHEMA = $(PROJECT_DIR)/bin/helm-schema
+.PHONY: helm-schema
+helm-schema:
+	@$(MAKE) _download_tool TOOL=helm-schema
 
 .PHONY: chartsnap
 chartsnap:
@@ -27,6 +32,10 @@ lint.charts.kong:
 
 lint.shellcheck:
 	shellcheck ./scripts/*
+
+.PHONY: schema.charts.kong
+schema.charts.kong: tools
+	$(HELM_SCHEMA) -c charts/kong --no-dependencies --skip-auto-generation title,description,required,default,additionalProperties
 
 .PHONY: test.golden
 test.golden:
