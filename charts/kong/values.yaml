@@ -921,6 +921,12 @@ autoscaling:
 # "resources" and, if using the controller, "ingressController.resources" in values.yaml
 verticalPodAutoscaler:
   enabled: false
+  proxy:
+    minAllowed:
+      cpu: 100m
+  controller:
+    minAllowed:
+      cpu: 50m
 
 # Kong Pod Disruption Budget
 podDisruptionBudget:

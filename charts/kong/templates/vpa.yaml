@@ -18,15 +18,23 @@ spec:
     - containerName: proxy
       controlledValues: RequestsAndLimits
       mode: Auto
-      minAllowed:
-        cpu: 50m
+      minAllowed: {{ toYaml .Values.verticalPodAutoscaler.proxy.minAllowed | nindent 8 }}
+    - containerName: clear-stale-pid
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed: {{ toYaml .Values.verticalPodAutoscaler.proxy.minAllowed | nindent 8 }}
+    {{- if (and (not (eq .Values.env.database "off")) .Values.waitImage.enabled) }}
+    - containerName: wait-for-db
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed: {{ toYaml .Values.verticalPodAutoscaler.proxy.minAllowed | nindent 8 }}
+    {{- end }}
     {{- end }}
     {{- if .Values.ingressController.enabled }}
     - containerName: ingress-controller
       controlledValues: RequestsAndLimits
       mode: Auto
-      minAllowed:
-        cpu: 50m
+      minAllowed: {{ toYaml .Values.verticalPodAutoscaler.controller.minAllowed | nindent 8 }}
     {{- end }}
   targetRef:
     apiVersion: apps/v1
