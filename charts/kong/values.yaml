@@ -916,6 +916,19 @@ autoscaling:
           type: Utilization
           averageUtilization: 80
 
+# Enable autoscaling using VerticalPodAutoscaler
+# When configuring an VPA, you must set resource requests on all containers via
+# "resources" and, if using the controller, "ingressController.resources" in values.yaml
+verticalPodAutoscaler:
+  enabled: false
+  proxy:
+    minAllowed:
+      cpu: 250m
+      memory: 256Mi
+  controller:
+    minAllowed:
+      cpu: 100m
+
 # Kong Pod Disruption Budget
 podDisruptionBudget:
   enabled: false

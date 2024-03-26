@@ -1,0 +1,46 @@
+{{- if .Values.verticalPodAutoscaler.enabled }}
+{{- if or .Values.deployment.kong.enabled .Values.ingressController.enabled }}
+{{- if .Values.autoscaling.enabled }}
+{{- fail "Cannot enable HorizontalPodAutoscaler and VerticalPodAutoscaler at the same time" }}
+{{- end }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ template "kong.fullname" . }}
+  namespace: {{ template "kong.namespace" . }}
+  labels:
+    {{- include "kong.metaLabels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  resourcePolicy:
+    containerPolicies:
+    {{- if .Values.deployment.kong.enabled }}
+    - containerName: proxy
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed: {{ toYaml .Values.verticalPodAutoscaler.proxy.minAllowed | nindent 8 }}
+    - containerName: clear-stale-pid
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed: {{ toYaml .Values.verticalPodAutoscaler.proxy.minAllowed | nindent 8 }}
+    {{- if (and (not (eq .Values.env.database "off")) .Values.waitImage.enabled) }}
+    - containerName: wait-for-db
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed: {{ toYaml .Values.verticalPodAutoscaler.proxy.minAllowed | nindent 8 }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.ingressController.enabled }}
+    - containerName: ingress-controller
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed: {{ toYaml .Values.verticalPodAutoscaler.controller.minAllowed | nindent 8 }}
+    {{- end }}
+  targetRef:
+    apiVersion: apps/v1
+    kind: {{ ternary "DaemonSet" "Deployment" .Values.deployment.daemonset }}
+    name: {{ template "kong.fullname" . }}
+  updatePolicy:
+    updateMode: Auto
+{{- end }}
+{{- end }}
