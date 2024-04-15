@@ -210,19 +210,27 @@ spec:
   ports:
   {{- if .http }}
   {{- if .http.enabled }}
+  {{- if ne ( .http.servicePort | toString ) "0" }}
   - name: kong-{{ .serviceName }}
     port: {{ .http.servicePort }}
     targetPort: {{ .http.containerPort }}
+  {{- if .http.appProtocol }}
+    appProtocol: {{ .http.appProtocol }}
+  {{- end }}
   {{- if (and (or (eq .type "LoadBalancer") (eq .type "NodePort")) (not (empty .http.nodePort))) }}
     nodePort: {{ .http.nodePort }}
   {{- end }}
     protocol: TCP
   {{- end }}
   {{- end }}
+  {{- end }}
   {{- if .tls.enabled }}
   - name: kong-{{ .serviceName }}-tls
     port: {{ .tls.servicePort }}
     targetPort: {{ .tls.overrideServiceTargetPort | default .tls.containerPort }}
+  {{- if .tls.appProtocol }}
+    appProtocol: {{ .tls.appProtocol }}
+  {{- end }}
   {{- if (and (or (eq .type "LoadBalancer") (eq .type "NodePort")) (not (empty .tls.nodePort))) }}
     nodePort: {{ .tls.nodePort }}
   {{- end }}
@@ -323,7 +331,9 @@ Parameters: takes a service (e.g. .Values.proxy) as its argument and returns KON
   {{- $portMaps := list -}}
 
   {{- if .http.enabled -}}
+  {{- if ne (.http.servicePort | toString ) "0" -}}
         {{- $portMaps = append $portMaps (printf "%d:%d" (int64 .http.servicePort) (int64 .http.containerPort)) -}}
+  {{- end -}}
   {{- end -}}
 
   {{- if .tls.enabled -}}
@@ -890,7 +900,7 @@ The name of the Service which will be used by the controller to update the Ingre
     containerPort: 10255
     protocol: TCP
   {{- end }}
-  - name: status
+  - name: cstatus
     containerPort: 10254
     protocol: TCP
   env:
@@ -1109,8 +1119,10 @@ the template that it itself is using form the above sections.
       {{- $_ := set $autoEnv "KONG_ADMIN_GUI_AUTH_CONF" $guiAuthConf -}}
     {{- end }}
 
-    {{- $guiSessionConf := include "secretkeyref" (dict "name" .Values.enterprise.rbac.session_conf_secret "key" "admin_gui_session_conf") -}}
-    {{- $_ := set $autoEnv "KONG_ADMIN_GUI_SESSION_CONF" $guiSessionConf -}}
+    {{- if .Values.enterprise.rbac.session_conf_secret }}
+      {{- $guiSessionConf := include "secretkeyref" (dict "name" .Values.enterprise.rbac.session_conf_secret "key" "admin_gui_session_conf") -}}
+      {{- $_ := set $autoEnv "KONG_ADMIN_GUI_SESSION_CONF" $guiSessionConf -}}
+    {{- end }}
   {{- end }}
 
   {{- if .Values.enterprise.smtp.enabled }}
@@ -1641,6 +1653,24 @@ resource roles into their separate templates.
   - get
   - list
   - watch
+{{- if (semverCompare ">= 3.1.0" (include "kong.effectiveVersion" .Values.ingressController.image)) }}
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - konglicenses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - configuration.konghq.com
+  resources:
+  - konglicenses/status
+  verbs:
+  - get
+  - patch
+  - update
+{{- end -}}
 {{- end -}}
 
 {{/*

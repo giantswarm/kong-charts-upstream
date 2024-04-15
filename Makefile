@@ -1,4 +1,5 @@
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+CHARTSNAP_VERSION ?= v0.3.1
 
 .PHONY: _download_tool
 _download_tool:
@@ -16,7 +17,7 @@ kube-linter:
 .PHONY: chartsnap
 chartsnap:
 	@helm plugin list | grep chartsnap > /dev/null || \
-	helm plugin install https://github.com/jlandowner/helm-chartsnap
+	helm plugin install https://github.com/jlandowner/helm-chartsnap --version $(CHARTSNAP_VERSION)
 
 .PHONY: lint
 lint: tools lint.charts.kong lint.shellcheck
@@ -28,9 +29,15 @@ lint.charts.kong:
 lint.shellcheck:
 	shellcheck ./scripts/*
 
-GOLDEN_TEST_CHART ?= kong
-GOLDEN_TEST_CHART_VALUES_DIR ?= ./charts/kong/ci/
-CHARTSNAP_COMMAND = helm chartsnap -c ./charts/$(GOLDEN_TEST_CHART) -f $(GOLDEN_TEST_CHART_VALUES_DIR)
+.PHONY: test.golden
+test.golden:
+	@ $(MAKE) _chartsnap.kong && $(MAKE) _chartsnap.ingress || \
+	(echo "$$GOLDEN_TEST_FAILURE_MSG" && exit 1)
+
+.PHONY: test.golden.update
+test.golden.update:
+	@ $(MAKE) _chartsnap.kong CHARTSNAP_ARGS="-u"
+	@ $(MAKE) _chartsnap.ingress CHARTSNAP_ARGS="-u"
 
 # Defining multi-line strings to echo: https://stackoverflow.com/a/649462/7958339
 define GOLDEN_TEST_FAILURE_MSG
@@ -39,12 +46,16 @@ define GOLDEN_TEST_FAILURE_MSG
 endef
 export GOLDEN_TEST_FAILURE_MSG
 
-.PHONY: test.golden
-test.golden: chartsnap
-	@ $(CHARTSNAP_COMMAND) || \
-	(echo "$$GOLDEN_TEST_FAILURE_MSG" && \
-	exit 1)
+.PHONY: _chartsnap.kong
+_chartsnap.kong:
+	@ $(MAKE) _chartsnap GOLDEN_TEST_CHART=kong GOLDEN_TEST_CHART_VALUES_DIR=./charts/kong/ci/ \
+	CHARTSNAP_ARGS=$(CHARTSNAP_ARGS)
 
-.PHONY: test.golden.update
-test.golden.update: chartsnap
-	$(CHARTSNAP_COMMAND) -u
+.PHONY: _chartsnap.ingress
+_chartsnap.ingress:
+	@ $(MAKE) _chartsnap GOLDEN_TEST_CHART=ingress GOLDEN_TEST_CHART_VALUES_DIR=./charts/ingress/ci/ \
+	CHARTSNAP_ARGS=$(CHARTSNAP_ARGS)
+
+.PHONY: _chartsnap
+_chartsnap: chartsnap
+	@ helm chartsnap -c ./charts/$(GOLDEN_TEST_CHART) -f $(GOLDEN_TEST_CHART_VALUES_DIR) $(CHARTSNAP_ARGS)

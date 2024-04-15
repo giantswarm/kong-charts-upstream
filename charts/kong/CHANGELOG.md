@@ -2,7 +2,44 @@
 
 ## Unreleased
 
-Nothing yet.
+### Changes
+
+* Updated handling of `session_conf_secret` to accommodate Kong 3.6.
+  It can now be omitted [when using OIDC](https://docs.konghq.com/gateway/3.6.x/kong-manager/auth/oidc/migrate/).
+  [#1033](https://github.com/Kong/charts/pull/1033)
+* Setting a Service's `servicePort` to 0 now disables that port on the Service,
+  for use when the external Service and container listens should differ, such
+  as when terminating TLS at a LoadBalancer.
+  [#1021](https://github.com/Kong/charts/pull/1021)
+
+## 2.38.0
+
+### Changes
+
+* Added support for setting `SVC.tls.appProtocol` and `SVC.http.appProtocol` values to configure the appProtocol fields
+  for Kubernetes Service HTTP and TLS ports. It might be useful for integration with external load balancers like GCP.
+  [#1018](https://github.com/Kong/charts/pull/1018)
+
+## 2.37.1
+
+* Rename the controller status port. This fixes a collision with the proxy status port in the Prometheus ServiceMonitor.
+  [#1008](https://github.com/Kong/charts/pull/1008)
+
+## 2.37.0
+
+### Changes
+
+* Bumped default `kong/kubernetes-ingress-controller` image tag and updated CRDs to 3.1.
+  [#1011](https://github.com/Kong/charts/pull/1011)
+* Bumped default `kong` image tag to 3.6.
+  [#1011](https://github.com/Kong/charts/pull/1011)
+
+## 2.36.0
+
+### Fixed
+
+* Add `KongLicense` RBAC rules.
+  [#1006](https://github.com/Kong/charts/pull/1006)
 
 ## 2.35.1
 
@@ -13,7 +50,7 @@ Nothing yet.
 
 ## 2.35.0
 
-### Added 
+### Added
 
 * Added controller's RBAC rules for `KongVault` CRD (installed only when KIC
   version >= 3.1.0).
