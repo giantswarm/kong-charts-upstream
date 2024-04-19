@@ -88,6 +88,7 @@ deployment:
 # e.g. setting pg_user here will override the value normally set when postgresql.enabled
 # is set below. In general, you should not set values here if they are set elsewhere.
 env:
+  anonymous_reports: "off"
   database: "off"
   # the chart uses the traditional router (for Kong 3.x+) because the ingress
   # controller generates traditional routes. if you do not use the controller,
@@ -129,11 +130,12 @@ extraLabels: {}
 
 # Specify Kong's Docker image and repository details here
 image:
-  repository: kong
-  tag: "3.6"
+  registry: &registry gsoci.azurecr.io
+  # repository: giantswarm/kong
+  # tag: "3.6.1"
   # Kong Enterprise
-  # repository: kong/kong-gateway
-  # tag: "3.5"
+  repository: giantswarm/kong-gateway
+  tag: "3.6.1.3-debian"
 
   # Specify a semver version if your image tag is not one (e.g. "nightly")
   effectiveSemver:
@@ -531,8 +533,9 @@ dblessConfig:
 ingressController:
   enabled: true
   image:
-    repository: kong/kubernetes-ingress-controller
-    tag: "3.1"
+    registry: *registry
+    repository: giantswarm/kong-ingress-controller
+    tag: "3.1.3"
     # Optionally set a semantic version for version-gated features. This can normally
     # be left unset. You only need to set this if your tag is not a semver string,
     # such as when you are using a "next" tag. Set this to the effective semantic
@@ -559,6 +562,7 @@ ingressController:
 
   # Specify Kong Ingress Controller configuration via environment variables
   env:
+    anonymous_reports: "false"
     # The controller disables TLS verification by default because Kong
     # generates self-signed certificates by default. Set this to false once you
     # have installed CA-signed certificates.
@@ -581,12 +585,17 @@ ingressController:
   envFrom: []
 
   admissionWebhook:
-    enabled: true
-    failurePolicy: Ignore
+    enabled: false
+    failurePolicy: Fail
     port: 8080
     certificate:
       provided: false
-    namespaceSelector: {}
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+        - linkerd
     # Specifiy the secretName when the certificate is provided via a TLS secret
     # secretName: ""
     # Specifiy the CA bundle of the provided certificate.
@@ -634,15 +643,13 @@ ingressController:
     periodSeconds: 10
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
-  # Example reasonable setting for "resources":
-  # resources:
-  #   limits:
-  #     cpu: 100m
-  #     memory: 256Mi
-  #   requests:
-  #     cpu: 50m
-  #     memory: 128Mi
+  resources:
+    limits:
+      cpu: 100m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
 
   konnect:
     enabled: false
@@ -714,12 +721,33 @@ postgresql:
     username: kong
     database: kong
   image:
+    registry: *registry
+    repository: giantswarm/postgresql-bitnami
     # use postgres < 14 until is https://github.com/Kong/kong/issues/8533 resolved and released
     # enterprise (kong-gateway) supports postgres 14
-    tag: 13.11.0-debian-11-r20
+    tag: 13.6.0-debian-10-r52
   service:
     ports:
       postgresql: "5432"
+  primary:
+    annotations:
+      "ignore-check.kube-linter.io/no-read-only-root-fs": "writable fs is required"
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  rbac:
+    create: true
+  psp:
+    create: true
 
 # -----------------------------------------------------------------------------
 # Configure cert-manager integration
@@ -800,7 +828,8 @@ waitImage:
   # Optionally specify an image that provides bash for pre-migration database
   # checks. If none is specified, the chart uses the Kong image. The official
   # Kong images provide bash
-  # repository: bash
+  # registry: *registry
+  # repository: giantswarm/bash
   # tag: 5
   pullPolicy: IfNotPresent
 
@@ -813,13 +842,13 @@ updateStrategy: {}
 
 # If you want to specify resources, uncomment the following
 # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-resources: {}
-  # limits:
-  #  cpu: 1
-  #  memory: 2G
-  # requests:
-  #  cpu: 1
-  #  memory: 2G
+resources:
+  limits:
+    cpu: 1
+    memory: 2G
+  requests:
+    cpu: 1
+    memory: 2G
 
 # readinessProbe for Kong pods
 readinessProbe:
@@ -875,11 +904,44 @@ terminationGracePeriodSeconds: 30
 
 # Affinity for pod assignment
 # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-# affinity: {}
+affinity: |-
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - {{ include "kong.chart-name" . | quote }}
+          - key: app.kubernetes.io/instance
+            operator: In
+            values:
+            - {{ .Release.Name | quote }}
+        topologyKey: kubernetes.io/hostname
 
 # Topology spread constraints for pod assignment (requires Kubernetes >= 1.19)
 # Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
-# topologySpreadConstraints: []
+# Important: We strongly suggest you review these settings before applying onto your clusters.
+# Document https://docs.giantswarm.io/advanced/high-availability/multi-az/ gives more insight.
+topologySpreadConstraints: |-
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: {{ include "kong.chart-name" . | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        application.giantswarm.io/container-images-hash: {{ include "kong.imagesHash" . | quote }}
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: {{ include "kong.chart-name" . | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        application.giantswarm.io/container-images-hash: {{ include "kong.imagesHash" . | quote }}
 
 # Tolerations for pod assignment
 # Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
@@ -890,16 +952,14 @@ tolerations: []
 nodeSelector: {}
 
 # Annotation to be added to Kong pods
-podAnnotations:
-  kuma.io/gateway: enabled
-  traffic.sidecar.istio.io/includeInboundPorts: ""
+podAnnotations: {}
 
 # Labels to be added to Kong pods
 podLabels: {}
 
 # Kong pod count.
 # It has no effect when autoscaling.enabled is set to true
-replicaCount: 1
+replicaCount: 2
 
 # Annotations to be added to Kong deployment
 deploymentAnnotations: {}
@@ -938,27 +998,37 @@ verticalPodAutoscaler:
 
 # Kong Pod Disruption Budget
 podDisruptionBudget:
-  enabled: false
+  enabled: true
   # Uncomment only one of the following when enabled is set to true
-  # maxUnavailable: "50%"
+  maxUnavailable: "25%"
   # minAvailable: "50%"
 
 podSecurityPolicy:
-  enabled: false
+  enabled: true
   labels: {}
-  annotations: {}
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
   spec:
     privileged: false
     fsGroup:
-      rule: RunAsAny
+      rule: MustRunAs
+      ranges:
+        - min: 1
+          max: 65533
     runAsUser:
-      rule: RunAsAny
+      rule: MustRunAsNonRoot
     runAsGroup:
-      rule: RunAsAny
+      rule: MustRunAs
+      ranges:
+        - min: 1
+          max: 65535
     seLinux:
       rule: RunAsAny
     supplementalGroups:
-      rule: RunAsAny
+      rule: MustRunAs
+      ranges:
+        - min: 1
+          max: 65535
     volumes:
       - 'configMap'
       - 'secret'
@@ -976,13 +1046,19 @@ podSecurityPolicy:
 priorityClassName: ""
 
 # securityContext for Kong pods.
-securityContext: {}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534  # nobody
+  runAsGroup: 65534  # nobody
+  seccompProfile:
+    type: RuntimeDefault
 
 # securityContext for containers.
 containerSecurityContext:
   readOnlyRootFilesystem: true
   allowPrivilegeEscalation: false
-  runAsUser: 1000
+  runAsUser: 65534  # nobody
+  runAsGroup: 65534  # nobody
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
@@ -1028,12 +1104,12 @@ serviceMonitor:
 # RBAC and SMTP configuration have additional options that must all be set together
 # Other settings should be added to the "env" settings below
 enterprise:
-  enabled: false
+  enabled: true
   # Kong Enterprise license secret name
   # This secret must contain a single 'license' key, containing your base64-encoded license data
   # The license secret is required to unlock all Enterprise features. If you omit it,
   # Kong will run in free mode, with some Enterprise features disabled.
-  # license_secret: kong-enterprise-license
+  license_secret: kong-enterprise-license
   vitals:
     enabled: true
   portal:
@@ -1269,3 +1345,18 @@ extraObjects: []
 #   config:
 #     per_consumer: false
 #   plugin: prometheus
+
+# Values for subchart kubectl-apply-job
+# for installing CRDs
+kubectlApplyJob:
+  files:
+  - crds/custom-resource-definitions.yaml
+  podSecurityPolicy:
+    annotations:
+      seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
+  securityContext:
+    seccompProfileType: RuntimeDefault
+
+global:
+  podSecurityStandards:
+    enforced: false
